@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ service.name }} · Seravops{% endblock %}
+{% block content %}
+<a class="back" href="/services">← Services</a>
+<div class="page-heading">
+  <div><h1>{{ service.name }}</h1><p class="muted">{{ service.framework }} · {{ service.target_server }}</p></div>
+</div>
+<div class="cards">
+  {% for recipe in recipes %}
+  <a class="card" href="/recipes/{{ recipe.id }}">
+    <h2>{{ recipe.name }}</h2><p>{{ recipe.description }}</p>
+    <span class="muted">{{ recipe.steps|length }} steps</span>
+  </a>
+  {% else %}<p>No recipes configured.</p>{% endfor %}
+</div>
+{% endblock %}
+

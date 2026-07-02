@@ -1,0 +1,18 @@
+<section id="execution-status"
+  {% if execution.status.value in ['pending', 'running'] %}
+    hx-get="/executions/{{ execution.id }}" hx-trigger="every 2s" hx-swap="outerHTML"
+  {% endif %}>
+  <div class="status-row">
+    <span class="status status-{{ execution.status.value }}">{{ execution.status.value }}</span>
+    {% if execution.started_at %}<span class="muted">Started {{ execution.started_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC</span>{% endif %}
+  </div>
+  <div class="terminal">
+    {% for log in execution.logs %}
+      <div class="log-line log-{{ log.stream.value }}">
+        <span class="log-step">{% if log.step %}[{{ log.step.name }}]{% else %}[execution]{% endif %}</span>
+        <span>{{ log.message }}</span>
+      </div>
+    {% else %}<div class="muted">Waiting for the first log event…</div>{% endfor %}
+  </div>
+</section>
+

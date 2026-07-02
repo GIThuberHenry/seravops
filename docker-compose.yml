@@ -1,0 +1,46 @@
+services:
+  app:
+    build:
+      context: .
+      target: development
+    ports:
+      - "7372:7372"
+    environment:
+      DEBUG: "true"
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://seravops:seravops@postgres:5432/seravops}
+      JWT_SECRET: ${JWT_SECRET:-development-only-secret}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
+      SERVER_1_HOST: ${SERVER_1_HOST:-localhost}
+      SERVER_1_USER: ${SERVER_1_USER:-root}
+      SERVER_1_PORT: ${SERVER_1_PORT:-22}
+      SERVER_1_KEY_PATH: ${SERVER_1_KEY_PATH:-}
+      SERVER_2_HOST: ${SERVER_2_HOST:-localhost}
+      SERVER_2_USER: ${SERVER_2_USER:-root}
+      SERVER_2_PORT: ${SERVER_2_PORT:-22}
+      SERVER_2_KEY_PATH: ${SERVER_2_KEY_PATH:-}
+    volumes:
+      - ./app:/app/app
+      - ./migrations:/app/migrations
+      - ./tests:/app/tests
+      - ./alembic.ini:/app/alembic.ini:ro
+    command: uvicorn app.main:app --host 0.0.0.0 --port 7372 --reload
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: seravops
+      POSTGRES_USER: seravops
+      POSTGRES_PASSWORD: seravops
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seravops -d seravops"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  postgres_data:

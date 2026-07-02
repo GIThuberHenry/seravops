@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{{ recipe.name }} · Seravops{% endblock %}
+{% block content %}
+<a class="back" href="/services/{{ recipe.service.id }}/recipes">← {{ recipe.service.name }}</a>
+<div class="page-heading">
+  <div><h1>{{ recipe.name }}</h1><p class="muted">{{ recipe.description }}</p></div>
+  <form action="/executions/run" method="post">
+    <input type="hidden" name="recipe_id" value="{{ recipe.id }}">
+    <button type="submit">Run recipe</button>
+  </form>
+</div>
+<section class="panel">
+  <h2>Steps</h2>
+  <ol class="steps">
+    {% for step in recipe.steps %}
+      <li><strong>{{ step.name }}</strong><span class="badge">{{ step.kind.value }}</span>
+        {% if step.command %}<code>{{ step.command }}</code>{% endif %}
+      </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endblock %}
+
