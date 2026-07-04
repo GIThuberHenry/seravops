@@ -2,15 +2,40 @@
 {% block title %}Services · Seravops{% endblock %}
 {% block content %}
 <div class="page-heading">
-  <div><h1>Services</h1><p class="muted">Deployment targets and their available recipes.</p></div>
+  <div>
+    <h1>Services</h1>
+    <p class="muted">Select a service to view and run its deployment recipes.</p>
+  </div>
+  {% if current_user.role.value == 'admin' %}
+  <div class="page-heading-actions">
+    <a class="btn btn-primary" href="/services/new">+ New Service</a>
+  </div>
+  {% endif %}
 </div>
+
+{% if services %}
 <div class="cards">
   {% for service in services %}
   <a class="card" href="/services/{{ service.id }}/recipes">
-    <div class="card-row"><h2>{{ service.name }}</h2><span class="badge">{{ service.framework }}</span></div>
-    <p>{{ service.target_server }} · {{ service.app_path }}</p>
+    <div class="card-row">
+      <h2>{{ service.name }}</h2>
+      <span class="badge badge-blue">{{ service.framework }}</span>
+    </div>
+    <p>{{ service.app_path }}</p>
+    <div class="card-meta">
+      <span class="badge">{{ service.target_server }}</span>
+      <span class="badge">{{ service.slug }}</span>
+    </div>
   </a>
-  {% else %}<p>No services configured.</p>{% endfor %}
+  {% endfor %}
 </div>
+{% else %}
+<div class="empty-state">
+  <h2>No services yet</h2>
+  <p>Register your first service to start building deployment recipes.</p>
+  {% if current_user.role.value == 'admin' %}
+  <a class="btn btn-primary" href="/services/new">Register a Service</a>
+  {% endif %}
+</div>
+{% endif %}
 {% endblock %}
-

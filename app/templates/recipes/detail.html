@@ -3,21 +3,70 @@
 {% block content %}
 <a class="back" href="/services/{{ recipe.service.id }}/recipes">← {{ recipe.service.name }}</a>
 <div class="page-heading">
-  <div><h1>{{ recipe.name }}</h1><p class="muted">{{ recipe.description }}</p></div>
-  <form action="/executions/run" method="post">
-    <input type="hidden" name="recipe_id" value="{{ recipe.id }}">
-    <button type="submit">Run recipe</button>
-  </form>
+  <div>
+    <h1>{{ recipe.name }}</h1>
+    <p class="muted">{{ recipe.description or 'No description.' }}</p>
+  </div>
+  <div class="page-heading-actions">
+    <form action="/executions/run" method="post">
+      <input type="hidden" name="recipe_id" value="{{ recipe.id }}">
+      <button type="submit" class="btn-primary">▶ Run Recipe</button>
+    </form>
+  </div>
 </div>
-<section class="panel">
-  <h2>Steps</h2>
+
+<div class="panel">
+  <div class="panel-header">
+    <h2>Steps</h2>
+    <span class="badge badge-purple">{{ recipe.steps|length }} step{{ 's' if recipe.steps|length != 1 }}</span>
+  </div>
   <ol class="steps">
     {% for step in recipe.steps %}
-      <li><strong>{{ step.name }}</strong><span class="badge">{{ step.kind.value }}</span>
-        {% if step.command %}<code>{{ step.command }}</code>{% endif %}
-      </li>
+    <li class="step-item">
+      <div class="step-num">{{ step.position }}</div>
+      <div class="step-body">
+        <h3>{{ step.name }} <span class="badge" style="margin-left:6px">{{ step.kind.value }}</span></h3>
+        {% if step.command %}
+        <code>{{ step.command }}</code>
+        {% endif %}
+        {% if step.config %}
+        <div class="step-config">
+          {% for key, val in step.config.items() %}
+          <span class="step-config-item">{{ key }}: <span>{{ val }}</span></span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </li>
     {% endfor %}
   </ol>
-</section>
-{% endblock %}
+</div>
 
+{% if executions %}
+<div class="panel">
+  <div class="panel-header">
+    <h2>Recent Executions</h2>
+    <span class="badge">{{ executions|length }}</span>
+  </div>
+  <div class="exec-list">
+    {% for ex in executions %}
+    <a class="exec-row" href="/executions/{{ ex.id }}">
+      <span class="status status-{{ ex.status.value }}">{{ ex.status.value }}</span>
+      <div class="exec-row-info">
+        <strong>#{{ ex.id }}</strong>
+        <span> · triggered by {{ ex.triggered_by.username }}</span>
+      </div>
+      <div class="exec-row-meta">
+        {% if ex.started_at %}{{ ex.started_at.strftime('%Y-%m-%d %H:%M') }} UTC{% else %}queued{% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="panel">
+  <div class="panel-header"><h2>Recent Executions</h2></div>
+  <p class="muted" style="font-size:.9rem">No executions yet. Click <strong>Run Recipe</strong> to start the first one.</p>
+</div>
+{% endif %}
+{% endblock %}

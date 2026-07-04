@@ -23,6 +23,7 @@ services:
       - ./migrations:/app/migrations
       - ./tests:/app/tests
       - ./alembic.ini:/app/alembic.ini:ro
+      - ./secrets/server_2_key:/run/secrets/server_2_key:ro
     command: uvicorn app.main:app --host 0.0.0.0 --port 7372 --reload
     depends_on:
       postgres:

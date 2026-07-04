@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}New Recipe · {{ service.name }} · Seravops{% endblock %}
+{% block content %}
+<a class="back" href="/services/{{ service.id }}/recipes">← {{ service.name }}</a>
+<div class="page-heading">
+  <div>
+    <h1>New Recipe</h1>
+    <p class="muted">Define the ordered steps that make up this deployment recipe.</p>
+  </div>
+</div>
+
+<div class="form-card" style="max-width:860px">
+  {% if error %}
+  <div class="alert alert-error" style="margin-bottom:20px">{{ error }}</div>
+  {% endif %}
+
+  <form action="/services/{{ service.id }}/recipes/new" method="post" id="recipe-form">
+    <div class="stack">
+      <div class="form-row">
+        <label>
+          Recipe Name
+          <input name="name" placeholder="Deploy to production" required maxlength="120" value="{{ form.name or '' }}">
+        </label>
+        <label>
+          Description
+          <input name="description" placeholder="Short description (optional)" maxlength="500" value="{{ form.description or '' }}">
+        </label>
+      </div>
+
+      <hr class="divider">
+
+      <div class="recipe-builder">
+        <div class="builder-header">
+          <div>
+            <h2 style="margin-bottom:4px">Steps</h2>
+            <p class="muted" style="font-size:.85rem">Steps execute in order. A non-zero exit code stops the recipe.</p>
+          </div>
+        </div>
+
+        <div class="builder-steps" id="steps-container">
+          <!-- Steps injected by JS -->
+        </div>
+
+        <button type="button" class="add-step-btn" id="add-step-btn">+ Add Step</button>
+      </div>
+
+      <div class="form-actions" style="padding-top:16px">
+        <button type="submit" class="btn-primary">Create Recipe</button>
+        <a class="btn btn-secondary" href="/services/{{ service.id }}/recipes">Cancel</a>
+      </div>
+    </div>
+  </form>
+</div>
+
+<template id="step-template">
+  <div class="builder-step" data-index="__IDX__">
+    <div class="builder-step-header">
+      <span class="drag-handle">⠿</span>
+      <span class="builder-step-num">__NUM__</span>
+      <span class="builder-step-title">Step __NUM__</span>
+      <button type="button" class="remove-step btn-sm" title="Remove step">✕</button>
+    </div>
+    <div class="builder-step-body">
+      <div class="form-row">
+        <label>
+          Step Name
+          <input name="steps[__IDX__][name]" placeholder="e.g. Pull latest code" required maxlength="120">
+        </label>
+        <label>
+          Kind
+          <select name="steps[__IDX__][kind]" class="kind-select">
+            <option value="git_pull">git_pull — Pull latest code</option>
+            <option value="command">command — Run a shell command</option>
+            <option value="nginx">nginx — Update nginx config</option>
+          </select>
+        </label>
+      </div>
+
+      <!-- command fields -->
+      <div class="kind-fields" data-for="command">
+        <label>
+          Command
+          <span class="hint">Runs in the service's app_path directory</span>
+          <input name="steps[__IDX__][command]" placeholder="systemctl restart myapp" style="font-family:'JetBrains Mono',monospace;font-size:.85rem">
+        </label>
+      </div>
+
+      <!-- nginx fields -->
+      <div class="kind-fields" data-for="nginx" hidden>
+        <div class="form-row-3">
+          <label>
+            Subdomain
+            <input name="steps[__IDX__][nginx_subdomain]" placeholder="api">
+          </label>
+          <label>
+            Upstream Port
+            <input name="steps[__IDX__][nginx_port]" type="number" placeholder="8000" min="1" max="65535">
+          </label>
+          <label>
+            Service Name (filename)
+            <input name="steps[__IDX__][nginx_service_name]" placeholder="my-api">
+          </label>
+        </div>
+      </div>
+
+      <!-- git_pull has no extra fields, shown as hint -->
+      <div class="kind-fields" data-for="git_pull" hidden>
+        <p class="muted" style="font-size:.85rem">Runs <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace">git pull --ff-only</code> in the service's app_path.</p>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+  const container = document.getElementById('steps-container');
+  const addBtn    = document.getElementById('add-step-btn');
+  const tmpl      = document.getElementById('step-template');
+  let   stepCount = 0;
+
+  function addStep(opts = {}) {
+    const idx  = stepCount++;
+    const num  = container.children.length + 1;
+    const html = tmpl.innerHTML.replaceAll('__IDX__', idx).replaceAll('__NUM__', num);
+    const div  = document.createElement('div');
+    div.innerHTML = html;
+    const el = div.firstElementChild;
+
+    // Pre-fill values (on error repopulation)
+    if (opts.name)  el.querySelector('input[name$="[name]"]').value = opts.name;
+    if (opts.kind)  el.querySelector('select.kind-select').value = opts.kind;
+    if (opts.command) el.querySelector('input[name$="[command]"]').value = opts.command;
+    if (opts.nginx_subdomain)    el.querySelector('input[name$="[nginx_subdomain]"]').value = opts.nginx_subdomain;
+    if (opts.nginx_port)         el.querySelector('input[name$="[nginx_port]"]').value = opts.nginx_port;
+    if (opts.nginx_service_name) el.querySelector('input[name$="[nginx_service_name]"]').value = opts.nginx_service_name;
+
+    wireStep(el);
+    container.appendChild(el);
+    renumberSteps();
+  }
+
+  function wireStep(el) {
+    // kind selector toggle
+    const kindSelect = el.querySelector('select.kind-select');
+    showKindFields(el, kindSelect.value);
+    kindSelect.addEventListener('change', () => showKindFields(el, kindSelect.value));
+
+    // name → title sync
+    const nameInput = el.querySelector('input[name$="[name]"]');
+    const title = el.querySelector('.builder-step-title');
+    nameInput.addEventListener('input', () => {
+      title.textContent = nameInput.value || `Step ${el.dataset.index * 1 + 1}`;
+    });
+
+    // remove
+    el.querySelector('.remove-step').addEventListener('click', () => {
+      el.remove();
+      renumberSteps();
+    });
+  }
+
+  function showKindFields(el, kind) {
+    el.querySelectorAll('.kind-fields').forEach(f => {
+      f.hidden = f.dataset.for !== kind;
+    });
+    // mark command as required only when kind=command
+    const cmdInput = el.querySelector('input[name$="[command]"]');
+    if (cmdInput) cmdInput.required = kind === 'command';
+  }
+
+  function renumberSteps() {
+    Array.from(container.children).forEach((el, i) => {
+      el.querySelector('.builder-step-num').textContent = i + 1;
+    });
+  }
+
+  addBtn.addEventListener('click', () => addStep());
+
+  // Repopulate on validation error
+  const prefill = {{ prefill_steps | tojson | safe }};
+  if (prefill.length) {
+    prefill.forEach(s => addStep(s));
+  } else {
+    addStep(); // start with one step
+  }
+
+  // Validate at least one step on submit
+  document.getElementById('recipe-form').addEventListener('submit', e => {
+    if (container.children.length === 0) {
+      e.preventDefault();
+      alert('Add at least one step before creating a recipe.');
+    }
+  });
+</script>
+{% endblock %}

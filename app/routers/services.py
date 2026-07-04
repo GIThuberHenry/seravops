@@ -1,8 +1,9 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -43,6 +44,47 @@ async def service_create(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> ServiceResponse:
     return ServiceResponse.model_validate(await service_service.create_service(db, data))
+
+
+@router.get("/services/new", response_class=HTMLResponse)
+async def service_new_page(
+    request: Request,
+    _admin: Annotated[User, Depends(require_admin)],
+    user: Annotated[User, Depends(require_auth)],
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request, "services/new.html", {"current_user": user, "error": None, "form": {}}
+    )
+
+
+@router.post("/services/new", response_class=HTMLResponse)
+async def service_new_submit(
+    request: Request,
+    _admin: Annotated[User, Depends(require_admin)],
+    user: Annotated[User, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    name: Annotated[str, Form()] = "",
+    slug: Annotated[str, Form()] = "",
+    framework: Annotated[str, Form()] = "",
+    target_server: Annotated[str, Form()] = "server_1",
+    app_path: Annotated[str, Form()] = "",
+) -> HTMLResponse:
+    form = {"name": name, "slug": slug, "framework": framework, "target_server": target_server, "app_path": app_path}
+    try:
+        data = ServiceCreate(**form)
+        service = await service_service.create_service(db, data)
+        return RedirectResponse(f"/services/{service.id}/recipes", status_code=status.HTTP_303_SEE_OTHER)
+    except ValidationError as exc:
+        error = "; ".join(e["msg"] for e in exc.errors())
+        return templates.TemplateResponse(
+            request, "services/new.html", {"current_user": user, "error": error, "form": form},
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+    except Exception as exc:
+        return templates.TemplateResponse(
+            request, "services/new.html", {"current_user": user, "error": str(exc), "form": form},
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
 
 
 @router.get("/services/{service_id}", response_model=ServiceResponse)

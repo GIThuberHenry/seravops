@@ -3,15 +3,36 @@
 {% block content %}
 <a class="back" href="/services">← Services</a>
 <div class="page-heading">
-  <div><h1>{{ service.name }}</h1><p class="muted">{{ service.framework }} · {{ service.target_server }}</p></div>
+  <div>
+    <h1>{{ service.name }}</h1>
+    <p class="muted">{{ service.framework }} · {{ service.target_server }} · {{ service.app_path }}</p>
+  </div>
+  {% if current_user.role.value == 'admin' %}
+  <div class="page-heading-actions">
+    <a class="btn btn-primary" href="/services/{{ service.id }}/recipes/new">+ New Recipe</a>
+  </div>
+  {% endif %}
 </div>
+
+{% if recipes %}
 <div class="cards">
   {% for recipe in recipes %}
   <a class="card" href="/recipes/{{ recipe.id }}">
-    <h2>{{ recipe.name }}</h2><p>{{ recipe.description }}</p>
-    <span class="muted">{{ recipe.steps|length }} steps</span>
+    <div class="card-row">
+      <h2>{{ recipe.name }}</h2>
+      <span class="badge badge-purple">{{ recipe.steps|length }} step{{ 's' if recipe.steps|length != 1 }}</span>
+    </div>
+    <p>{{ recipe.description or 'No description.' }}</p>
   </a>
-  {% else %}<p>No recipes configured.</p>{% endfor %}
+  {% endfor %}
 </div>
+{% else %}
+<div class="empty-state">
+  <h2>No recipes yet</h2>
+  <p>Recipes define the ordered steps to deploy, update, or configure this service.</p>
+  {% if current_user.role.value == 'admin' %}
+  <a class="btn btn-primary" href="/services/{{ service.id }}/recipes/new">Create First Recipe</a>
+  {% endif %}
+</div>
+{% endif %}
 {% endblock %}
-

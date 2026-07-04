@@ -24,6 +24,13 @@ class RecipeCreate(BaseModel):
     steps: list[RecipeStepCreate] = Field(min_length=1)
 
 
+class RecipeUpdate(BaseModel):
+    name: str
+    description: str = ""
+    steps: list[RecipeStepCreate] = Field(min_length=1)
+
+
+
 class RecipeStepResponse(RecipeStepCreate):
     model_config = ConfigDict(from_attributes=True)
 

@@ -54,6 +54,31 @@ async def create_recipe(db: AsyncSession, data: RecipeCreate) -> Recipe:
     return await get_recipe(db, recipe.id)  # type: ignore[return-value]
 
 
+async def update_recipe(db: AsyncSession, recipe_id: int, data: "RecipeUpdate") -> Recipe:
+    from sqlalchemy import delete as sa_delete
+
+    recipe = await db.get(Recipe, recipe_id)
+    if not recipe:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
+    recipe.name = data.name
+    recipe.description = data.description
+    # Replace all steps atomically
+    await db.execute(sa_delete(RecipeStep).where(RecipeStep.recipe_id == recipe_id))
+    for step_data in data.steps:
+        db.add(RecipeStep(recipe_id=recipe_id, **step_data.model_dump()))
+    await db.commit()
+    return await get_recipe(db, recipe_id)  # type: ignore[return-value]
+
+
+async def delete_recipe(db: AsyncSession, recipe_id: int) -> None:
+    recipe = await db.get(Recipe, recipe_id)
+    if not recipe:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
+    await db.delete(recipe)
+    await db.commit()
+
+
+
 async def create_execution(db: AsyncSession, recipe_id: int, user: User) -> RecipeExecution:
     if not await db.get(Recipe, recipe_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
@@ -71,6 +96,22 @@ async def get_execution(db: AsyncSession, execution_id: int) -> RecipeExecution 
         .options(
             selectinload(RecipeExecution.recipe).selectinload(Recipe.service),
             selectinload(RecipeExecution.logs).selectinload(ExecutionLog.step),
+        )
+    )
+
+
+async def list_executions(
+    db: AsyncSession, recipe_id: int, limit: int = 20
+) -> list[RecipeExecution]:
+    from app.models.user import User  # avoid circular at module level
+
+    return list(
+        await db.scalars(
+            select(RecipeExecution)
+            .where(RecipeExecution.recipe_id == recipe_id)
+            .options(selectinload(RecipeExecution.triggered_by))
+            .order_by(RecipeExecution.id.desc())
+            .limit(limit)
         )
     )
 

@@ -6,6 +6,7 @@ Create Date: 2026-07-02
 """
 
 from collections.abc import Sequence
+from datetime import UTC, datetime
 
 import sqlalchemy as sa
 from alembic import op
@@ -94,7 +95,7 @@ def upgrade() -> None:
     op.create_index("ix_execution_logs_execution_id", "execution_logs", ["execution_id"])
     op.create_index("ix_execution_logs_created_at", "execution_logs", ["created_at"])
 
-    now = sa.func.now()
+    now = datetime.now(UTC)
     hasher = PasswordHash.recommended()
     users = sa.table(
         "users",

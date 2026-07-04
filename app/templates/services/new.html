@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}New Service · Seravops{% endblock %}
+{% block content %}
+<a class="back" href="/services">← Services</a>
+<div class="page-heading">
+  <div>
+    <h1>Register Service</h1>
+    <p class="muted">Add a new deployable service and assign it to a target server.</p>
+  </div>
+</div>
+
+<div class="form-card">
+  {% if error %}
+  <div class="alert alert-error" style="margin-bottom:20px">{{ error }}</div>
+  {% endif %}
+
+  <form action="/services/new" method="post" class="stack">
+    <div class="form-row">
+      <label>
+        Service Name
+        <span class="hint">Display name shown in the UI</span>
+        <input name="name" placeholder="My API" required maxlength="120" value="{{ form.name or '' }}">
+      </label>
+      <label>
+        Slug
+        <span class="hint">URL-safe identifier (lowercase, hyphens)</span>
+        <input name="slug" placeholder="my-api" pattern="^[a-z0-9-]+" required maxlength="120" value="{{ form.slug or '' }}" id="slug-input">
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>
+        Framework / Language
+        <span class="hint">Informational label only</span>
+        <input name="framework" placeholder="FastAPI, Django, Node…" required maxlength="50" value="{{ form.framework or '' }}">
+      </label>
+      <label>
+        Target Server
+        <span class="hint">Which configured server runs this service</span>
+        <select name="target_server" required>
+          <option value="server_1" {% if (form.target_server or 'server_1') == 'server_1' %}selected{% endif %}>server_1</option>
+          <option value="server_2" {% if form.target_server == 'server_2' %}selected{% endif %}>server_2</option>
+        </select>
+      </label>
+    </div>
+
+    <label>
+      App Path
+      <span class="hint">Absolute path on the target server (used as working directory)</span>
+      <input name="app_path" placeholder="/var/www/my-api" required maxlength="500" value="{{ form.app_path or '' }}">
+    </label>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">Register Service</button>
+      <a class="btn btn-secondary" href="/services">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  // Auto-generate slug from name
+  const nameInput = document.querySelector('input[name=name]');
+  const slugInput = document.getElementById('slug-input');
+  let slugTouched = slugInput.value !== '';
+  slugInput.addEventListener('input', () => { slugTouched = true; });
+  nameInput.addEventListener('input', () => {
+    if (!slugTouched) {
+      slugInput.value = nameInput.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    }
+  });
+</script>
+{% endblock %}

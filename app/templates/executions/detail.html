@@ -2,7 +2,11 @@
 {% block title %}Execution #{{ execution.id }} · Seravops{% endblock %}
 {% block content %}
 <a class="back" href="/recipes/{{ execution.recipe.id }}">← {{ execution.recipe.name }}</a>
-<h1>Execution #{{ execution.id }}</h1>
+<div class="page-heading">
+  <div>
+    <h1>Execution #{{ execution.id }}</h1>
+    <p class="muted">{{ execution.recipe.service.name }} · {{ execution.recipe.name }}</p>
+  </div>
+</div>
 {% include "executions/_status.html" %}
 {% endblock %}
-
