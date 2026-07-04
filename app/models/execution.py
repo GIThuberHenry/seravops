@@ -16,7 +16,7 @@ class RecipeExecution(Base):
     __tablename__ = "recipe_executions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipes.id"))
+    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipes.id", ondelete="CASCADE"))
     triggered_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     status: Mapped[ExecutionStatus] = mapped_column(
         Enum(ExecutionStatus, native_enum=False), default=ExecutionStatus.PENDING

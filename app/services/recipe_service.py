@@ -20,7 +20,7 @@ from app.models import (
     StepKind,
     User,
 )
-from app.schemas.recipe import RecipeCreate
+from app.schemas.recipe import RecipeCreate, RecipeUpdate
 from app.services import git_service, nginx_service, ssh_service
 from app.services.ssh_service import CommandResult
 
@@ -54,7 +54,7 @@ async def create_recipe(db: AsyncSession, data: RecipeCreate) -> Recipe:
     return await get_recipe(db, recipe.id)  # type: ignore[return-value]
 
 
-async def update_recipe(db: AsyncSession, recipe_id: int, data: "RecipeUpdate") -> Recipe:
+async def update_recipe(db: AsyncSession, recipe_id: int, data: RecipeUpdate) -> Recipe:
     from sqlalchemy import delete as sa_delete
 
     recipe = await db.get(Recipe, recipe_id)

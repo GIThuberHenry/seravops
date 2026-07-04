@@ -8,6 +8,9 @@
     <p class="muted">{{ recipe.description or 'No description.' }}</p>
   </div>
   <div class="page-heading-actions">
+    {% if current_user.role.value == 'admin' %}
+    <a class="btn btn-secondary" href="/recipes/{{ recipe.id }}/edit">✏️ Edit Recipe</a>
+    {% endif %}
     <form action="/executions/run" method="post">
       <input type="hidden" name="recipe_id" value="{{ recipe.id }}">
       <button type="submit" class="btn-primary">▶ Run Recipe</button>
