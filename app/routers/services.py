@@ -10,7 +10,7 @@ from app.core.config import get_settings
 from app.core.security import require_admin, require_auth
 from app.db import get_db
 from app.models import User
-from app.schemas.service import ServiceCreate, ServiceResponse
+from app.schemas.service import ServiceCreate, ServiceResponse, ServiceUpdate
 from app.services import service_service
 
 router = APIRouter(tags=["services"])
@@ -87,6 +87,83 @@ async def service_new_submit(
         )
 
 
+# ── Edit service ───────────────────────────────────────────────────────────
+
+
+@router.get("/services/{service_id}/edit", response_class=HTMLResponse)
+async def service_edit_page(
+    service_id: int,
+    request: Request,
+    _admin: Annotated[User, Depends(require_admin)],
+    user: Annotated[User, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> HTMLResponse:
+    service = await service_service.get_service(db, service_id)
+    if not service:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+    return templates.TemplateResponse(
+        request,
+        "services/edit.html",
+        {
+            "service": service,
+            "current_user": user,
+            "error": None,
+            "form": {
+                "name": service.name,
+                "framework": service.framework,
+                "target_server": service.target_server,
+                "app_path": service.app_path,
+            },
+        },
+    )
+
+
+@router.post("/services/{service_id}/edit", response_class=HTMLResponse)
+async def service_edit_submit(
+    service_id: int,
+    request: Request,
+    _admin: Annotated[User, Depends(require_admin)],
+    user: Annotated[User, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    name: Annotated[str, Form()] = "",
+    framework: Annotated[str, Form()] = "",
+    target_server: Annotated[str, Form()] = "server_1",
+    app_path: Annotated[str, Form()] = "",
+) -> HTMLResponse:
+    service = await service_service.get_service(db, service_id)
+    if not service:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+
+    form = {"name": name, "framework": framework, "target_server": target_server, "app_path": app_path}
+    try:
+        data = ServiceUpdate(**form)
+        await service_service.update_service(db, service_id, data)
+        return RedirectResponse(f"/services/{service_id}/recipes", status_code=status.HTTP_303_SEE_OTHER)
+    except ValidationError as exc:
+        error = "; ".join(e["msg"] for e in exc.errors())
+        return templates.TemplateResponse(
+            request, "services/edit.html",
+            {"service": service, "current_user": user, "error": error, "form": form},
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+    except Exception as exc:
+        return templates.TemplateResponse(
+            request, "services/edit.html",
+            {"service": service, "current_user": user, "error": str(exc), "form": form},
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+
+@router.post("/services/{service_id}/delete", response_class=HTMLResponse)
+async def service_delete(
+    service_id: int,
+    _admin: Annotated[User, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> HTMLResponse:
+    await service_service.delete_service(db, service_id)
+    return RedirectResponse("/services", status_code=status.HTTP_303_SEE_OTHER)
+
+
 @router.get("/services/{service_id}", response_model=ServiceResponse)
 async def service_get(
     service_id: int,
@@ -97,3 +174,4 @@ async def service_get(
     if not service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
     return ServiceResponse.model_validate(service)
+

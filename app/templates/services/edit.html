@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Edit · {{ service.name }} · Seravops{% endblock %}
+{% block content %}
+<a class="back" href="/services/{{ service.id }}/recipes">← {{ service.name }}</a>
+<div class="page-heading">
+  <div>
+    <h1>Edit Service</h1>
+    <p class="muted">Update service configuration. The slug <code style="background:var(--surface-2);padding:2px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace">{{ service.slug }}</code> cannot be changed.</p>
+  </div>
+  <div class="page-heading-actions">
+    <button type="button" class="btn btn-danger" id="delete-btn">🗑 Delete Service</button>
+  </div>
+</div>
+
+{# Hidden delete confirmation #}
+<div id="delete-confirm" hidden style="margin-bottom:20px">
+  <div class="alert alert-error" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <span>⚠️ Delete <strong>{{ service.name }}</strong>? This also deletes all recipes, executions, and logs. This cannot be undone.</span>
+    <form action="/services/{{ service.id }}/delete" method="post" style="display:flex;gap:8px;flex-shrink:0">
+      <button type="submit" class="btn btn-danger btn-sm">Yes, delete</button>
+      <button type="button" class="btn btn-secondary btn-sm" id="cancel-delete-btn">Cancel</button>
+    </form>
+  </div>
+</div>
+
+<div class="form-card">
+  {% if error %}
+  <div class="alert alert-error" style="margin-bottom:20px">{{ error }}</div>
+  {% endif %}
+
+  <form action="/services/{{ service.id }}/edit" method="post" class="stack">
+    <div class="form-row">
+      <label>
+        Service Name
+        <span class="hint">Display name shown in the UI</span>
+        <input name="name" placeholder="My API" required maxlength="120" value="{{ form.name or '' }}">
+      </label>
+      <label>
+        Slug
+        <span class="hint">Immutable identifier (set at creation)</span>
+        <input value="{{ service.slug }}" disabled style="opacity:.5;cursor:not-allowed">
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>
+        Framework / Language
+        <span class="hint">Informational label only</span>
+        <input name="framework" placeholder="FastAPI, Django, Node…" required maxlength="50" value="{{ form.framework or '' }}">
+      </label>
+      <label>
+        Target Server
+        <span class="hint">Which configured server runs this service</span>
+        <select name="target_server" required>
+          <option value="server_1" {% if (form.target_server or 'server_1') == 'server_1' %}selected{% endif %}>server_1</option>
+          <option value="server_2" {% if form.target_server == 'server_2' %}selected{% endif %}>server_2</option>
+        </select>
+      </label>
+    </div>
+
+    <label>
+      App Path
+      <span class="hint">Absolute path on the target server (used as working directory)</span>
+      <input name="app_path" placeholder="/var/www/my-api" required maxlength="500" value="{{ form.app_path or '' }}">
+    </label>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">Save Changes</button>
+      <a class="btn btn-secondary" href="/services/{{ service.id }}/recipes">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  document.getElementById('delete-btn').addEventListener('click', () => {
+    document.getElementById('delete-confirm').hidden = false;
+    document.getElementById('delete-btn').hidden = true;
+  });
+  document.getElementById('cancel-delete-btn').addEventListener('click', () => {
+    document.getElementById('delete-confirm').hidden = true;
+    document.getElementById('delete-btn').hidden = false;
+  });
+</script>
+{% endblock %}

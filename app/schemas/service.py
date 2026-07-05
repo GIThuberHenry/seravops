@@ -9,7 +9,15 @@ class ServiceCreate(BaseModel):
     app_path: str
 
 
+class ServiceUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    framework: str
+    target_server: str = Field(pattern=r"^server_[12]$")
+    app_path: str
+
+
 class ServiceResponse(ServiceCreate):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+

@@ -9,6 +9,7 @@
   </div>
   {% if current_user.role.value == 'admin' %}
   <div class="page-heading-actions">
+    <a class="btn btn-secondary" href="/services/{{ service.id }}/edit">✏️ Edit Service</a>
     <a class="btn btn-primary" href="/services/{{ service.id }}/recipes/new">+ New Recipe</a>
   </div>
   {% endif %}
