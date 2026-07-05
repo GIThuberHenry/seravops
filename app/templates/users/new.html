@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}New User · Seravops{% endblock %}
+{% block content %}
+<a class="back" href="/users">← Users</a>
+<div class="page-heading">
+  <div>
+    <h1>Create User</h1>
+    <p class="muted">Add a new user to the platform.</p>
+  </div>
+</div>
+
+<div class="form-card">
+  {% if error %}
+  <div class="alert alert-error" style="margin-bottom:20px">{{ error }}</div>
+  {% endif %}
+
+  <form action="/users/new" method="post" class="stack">
+    <div class="form-row">
+      <label>
+        Username
+        <span class="hint">Letters, numbers, dots, hyphens, underscores</span>
+        <input name="username" placeholder="john.doe" required maxlength="100" value="{{ form.username or '' }}" autocomplete="off">
+      </label>
+      <label>
+        Password
+        <span class="hint">Minimum 6 characters</span>
+        <input type="password" name="password" placeholder="••••••••" required minlength="6" maxlength="128" autocomplete="new-password">
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>
+        Role
+        <span class="hint">Admins can manage services, recipes, and users</span>
+        <select name="role" required>
+          <option value="developer" {% if (form.role or 'developer') == 'developer' %}selected{% endif %}>developer</option>
+          <option value="admin" {% if form.role == 'admin' %}selected{% endif %}>admin</option>
+        </select>
+      </label>
+      <label>
+        Allowed IPs
+        <span class="hint">Comma-separated. Leave blank to allow any IP.</span>
+        <input name="allowed_ips" placeholder="10.0.0.1, 192.168.1.0/24" maxlength="2000" value="{{ form.allowed_ips or '' }}">
+      </label>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">Create User</button>
+      <a class="btn btn-secondary" href="/users">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

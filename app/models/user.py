@@ -18,8 +18,10 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(100), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[UserRole] = mapped_column(Enum(UserRole, native_enum=False))
+    allowed_ips: Mapped[str | None] = mapped_column(String(2000), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
     executions: Mapped[list["RecipeExecution"]] = relationship(back_populates="triggered_by")
+

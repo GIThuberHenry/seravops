@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Users · Seravops{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h1>Users</h1>
+    <p class="muted">Manage platform users and their access.</p>
+  </div>
+  <div class="page-heading-actions">
+    <a class="btn btn-primary" href="/users/new">+ New User</a>
+  </div>
+</div>
+
+{% if users %}
+<div class="panel">
+  <table class="user-table">
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Role</th>
+        <th>Allowed IPs</th>
+        <th>Created</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td><strong>{{ u.username }}</strong></td>
+        <td><span class="badge {% if u.role.value == 'admin' %}badge-purple{% else %}badge-blue{% endif %}">{{ u.role.value }}</span></td>
+        <td>
+          {% if u.allowed_ips %}
+            {% for ip in u.allowed_ips.split(',') %}
+            <code style="background:var(--surface-2);padding:1px 6px;border-radius:4px;font-size:.8rem;margin-right:4px">{{ ip.strip() }}</code>
+            {% endfor %}
+          {% else %}
+            <span class="muted" style="font-size:.85rem">Any IP</span>
+          {% endif %}
+        </td>
+        <td style="font-size:.85rem;color:var(--text-2)">{{ u.created_at.strftime('%Y-%m-%d') if u.created_at else '—' }}</td>
+        <td style="text-align:right">
+          <a class="btn btn-secondary btn-sm" href="/users/{{ u.id }}/edit">Edit</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <h2>No users yet</h2>
+  <p>Create the first user to get started.</p>
+  <a class="btn btn-primary" href="/users/new">Create User</a>
+</div>
+{% endif %}
+{% endblock %}
