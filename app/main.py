@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
 from app.core.logging import configure_logging
-from app.routers import auth, executions, recipes, services
+from app.routers import auth, executions, recipes, services, users
 
 
 @asynccontextmanager
@@ -30,6 +30,7 @@ def create_app() -> FastAPI:
     application.include_router(services.router)
     application.include_router(recipes.router)
     application.include_router(executions.router)
+    application.include_router(users.router)
 
     @application.exception_handler(HTTPException)
     async def authentication_redirect(request: Request, exc: HTTPException) -> Response:

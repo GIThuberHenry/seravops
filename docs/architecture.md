@@ -109,7 +109,7 @@ Polling stops when the HTMX fragment detects `status=success` or `status=failed`
 
 ```
 users
-  id, username, hashed_password, role (admin|developer), created_at
+  id, username, hashed_password, role (admin|developer), ip_address, created_at
 
 services
   id, name, slug, framework, target_server (server_1|server_2), app_path, created_at

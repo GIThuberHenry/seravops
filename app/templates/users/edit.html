@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ target_user.username }} — Seravops{% endblock %}
+
+{% block content %}
+<div class="header-row">
+  <h2>Edit User: {{ target_user.username }}</h2>
+</div>
+
+{% if error %}
+<div class="alert error">{{ error }}</div>
+{% endif %}
+
+<form class="card-form" method="post">
+  <div class="field">
+    <label>Username</label>
+    <input type="text" name="username" value="{{ target_user.username }}" required>
+  </div>
+  
+  <div class="field">
+    <label>New Password (Optional)</label>
+    <input type="password" name="password" placeholder="Leave blank to keep current password">
+  </div>
+
+  <div class="field">
+    <label>Role</label>
+    <select name="role" required {% if target_user.id == current_user.id %}disabled{% endif %}>
+      <option value="developer" {% if target_user.role.value == 'developer' %}selected{% endif %}>Developer</option>
+      <option value="admin" {% if target_user.role.value == 'admin' %}selected{% endif %}>Admin</option>
+    </select>
+    {% if target_user.id == current_user.id %}
+      <input type="hidden" name="role" value="{{ target_user.role.value }}">
+      <small>You cannot change your own role.</small>
+    {% endif %}
+  </div>
+
+  <div class="field">
+    <label>IP Whitelist (Optional)</label>
+    <input type="text" name="ip_address" value="{{ target_user.ip_address or '' }}" placeholder="e.g. 192.168.1.100">
+    <small>Leave blank to allow all IPs.</small>
+  </div>
+
+  <div class="actions mt">
+    <button class="btn primary" type="submit">Save Changes</button>
+    <a class="btn" href="/users">Cancel</a>
+  </div>
+</form>
+{% endblock %}

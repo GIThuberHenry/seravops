@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}New User — Seravops{% endblock %}
+
+{% block content %}
+<div class="header-row">
+  <h2>New User</h2>
+</div>
+
+{% if error %}
+<div class="alert error">{{ error }}</div>
+{% endif %}
+
+<form class="card-form" method="post">
+  <div class="field">
+    <label>Username</label>
+    <input type="text" name="username" value="{{ form.get('username', '') }}" required autofocus>
+  </div>
+  
+  <div class="field">
+    <label>Password</label>
+    <input type="password" name="password" required>
+  </div>
+
+  <div class="field">
+    <label>Role</label>
+    <select name="role" required>
+      <option value="developer" {% if form.get('role') == 'developer' %}selected{% endif %}>Developer</option>
+      <option value="admin" {% if form.get('role') == 'admin' %}selected{% endif %}>Admin</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>IP Whitelist (Optional)</label>
+    <input type="text" name="ip_address" value="{{ form.get('ip_address', '') }}" placeholder="e.g. 192.168.1.100">
+    <small>Leave blank to allow all IPs.</small>
+  </div>
+
+  <div class="actions mt">
+    <button class="btn primary" type="submit">Create User</button>
+    <a class="btn" href="/users">Cancel</a>
+  </div>
+</form>
+{% endblock %}

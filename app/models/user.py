@@ -18,6 +18,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(100), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[UserRole] = mapped_column(Enum(UserRole, native_enum=False))
+    ip_address: Mapped[str | None] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

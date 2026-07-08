@@ -184,6 +184,12 @@ File: [`app/core/security.py`](app/core/security.py)
 | GET    | `/recipes/{id}`                   | Any     | Recipe detail + execution history   |
 | POST   | `/executions/run`                 | Any     | Trigger execution (form)            |
 | GET    | `/executions/{id}`                | Any     | Execution detail (HTML/HTMX)        |
+| GET    | `/users`                          | Admin   | User list                           |
+| GET    | `/users/new`                      | Admin   | New user form                       |
+| POST   | `/users/new`                      | Admin   | Submit user creation                |
+| GET    | `/users/{id}/edit`                | Admin   | Edit user form                      |
+| POST   | `/users/{id}/edit`                | Admin   | Submit user update                  |
+| POST   | `/users/{id}/delete`              | Admin   | Delete user                         |
 
 ### JSON API Routes
 
@@ -328,4 +334,4 @@ Key test files:
 - **Multi-tenant**: Add an `Organization` model and scope services/recipes per org
 - **Recipe editing**: Add `PUT /recipes/{id}` (JSON) and `GET/POST /recipes/{id}/edit` (HTML form) routes
 - **Service deletion**: Add `DELETE /services/{id}` with cascade behaviour and a confirmation UI
-- **User management UI**: Admin page to create/reset passwords for other users
+- **IP Whitelisting**: Enforce the `ip_address` field on the `User` model to restrict access by IP

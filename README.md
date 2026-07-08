@@ -18,8 +18,8 @@ Developer → picks a service, selects a recipe, triggers an execution, watches 
 - **SSH + local execution** — uses `asyncssh` for remote targets; `localhost`/`127.0.0.1` falls back to a local subprocess (useful for in-container tasks)
 - **Safe nginx management** — renders, validates (`nginx -t`), and only applies config if validation passes; a bad config never replaces a good one
 - **Live log streaming** — execution stdout/stderr is committed row-by-row to PostgreSQL; the browser polls with HTMX every 2 seconds for a live-terminal feel
-- **Role-based access control** — JWT auth with `admin` and `developer` roles; only admins can create services or recipes
-- **Full admin web UI** — register services and build recipes (with a dynamic step builder) directly in the browser; no API calls required
+- **Role-based access control** — JWT auth with `admin` and `developer` roles; only admins can manage users, create services, or build recipes
+- **Full admin web UI** — manage users, register services, and build recipes (with a dynamic step builder) directly in the browser; no API calls required
 - **Execution history** — recipe detail pages show the last 20 executions with status, triggering user, and timestamp
 - **Dual interface** — full HTML/HTMX UI served by Jinja2 templates _and_ a JSON API (documented at `/docs`) for CI/CD or scripting
 
@@ -137,6 +137,9 @@ docs/               # Extended documentation
 | **New recipe builder** | `/services/{id}/recipes/new` | Admin |
 | Recipe detail + execution history | `/recipes/{id}` | All |
 | Live execution log | `/executions/{id}` | All |
+| **User list** | `/users` | Admin |
+| **New user form** | `/users/new` | Admin |
+| **Edit user form** | `/users/{id}/edit` | Admin |
 
 ## JSON API Overview
 
