@@ -1,54 +1,71 @@
+from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Sequence
 
-from app.models.user import User
-from app.models.enums import UserRole
+from app.models import User
+from app.schemas.user import UserCreate, UserUpdate
 from app.services.auth_service import hash_password
 
-async def get_users(db: AsyncSession) -> Sequence[User]:
-    result = await db.scalars(select(User).order_by(User.id))
-    return result.all()
 
-async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:
-    return await db.scalar(select(User).where(User.id == user_id))
+async def list_users(db: AsyncSession) -> list[User]:
+    result = await db.scalars(select(User).order_by(User.username))
+    return list(result)
 
-async def create_user(
-    db: AsyncSession,
-    username: str,
-    password: str,
-    role: UserRole,
-    ip_address: str | None = None
-) -> User:
-    hashed_password = hash_password(password)
+
+async def get_user(db: AsyncSession, user_id: int) -> User | None:
+    return await db.get(User, user_id)
+
+
+async def create_user(db: AsyncSession, data: UserCreate) -> User:
+    # Check for duplicate username
+    existing = await db.scalar(select(User).where(User.username == data.username))
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Username '{data.username}' already exists",
+        )
     user = User(
-        username=username,
-        password_hash=hashed_password,
-        role=role,
-        ip_address=ip_address
+        username=data.username,
+        password_hash=hash_password(data.password),
+        role=data.role,
+        allowed_ips=data.allowed_ips or None,
     )
     db.add(user)
     await db.commit()
     await db.refresh(user)
     return user
 
-async def update_user(
-    db: AsyncSession,
-    user: User,
-    username: str,
-    role: UserRole,
-    ip_address: str | None = None,
-    password: str | None = None
-) -> User:
-    user.username = username
-    user.role = role
-    user.ip_address = ip_address
-    if password:
-        user.password_hash = hash_password(password)
+
+async def update_user(db: AsyncSession, user_id: int, data: UserUpdate) -> User:
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    # Check for duplicate username (exclude self)
+    if data.username != user.username:
+        existing = await db.scalar(select(User).where(User.username == data.username))
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Username '{data.username}' already exists",
+            )
+    user.username = data.username
+    user.role = data.role
+    user.allowed_ips = data.allowed_ips or None
+    if data.password:
+        user.password_hash = hash_password(data.password)
     await db.commit()
     await db.refresh(user)
     return user
 
-async def delete_user(db: AsyncSession, user: User) -> None:
+
+async def delete_user(db: AsyncSession, user_id: int, current_user_id: int) -> None:
+    if user_id == current_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete your own account",
+        )
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     await db.delete(user)
     await db.commit()

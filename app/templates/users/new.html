@@ -1,43 +1,53 @@
 {% extends "base.html" %}
-{% block title %}New User — Seravops{% endblock %}
-
+{% block title %}New User · Seravops{% endblock %}
 {% block content %}
-<div class="header-row">
-  <h2>New User</h2>
+<a class="back" href="/users">← Users</a>
+<div class="page-heading">
+  <div>
+    <h1>Create User</h1>
+    <p class="muted">Add a new user to the platform.</p>
+  </div>
 </div>
 
-{% if error %}
-<div class="alert error">{{ error }}</div>
-{% endif %}
+<div class="form-card">
+  {% if error %}
+  <div class="alert alert-error" style="margin-bottom:20px">{{ error }}</div>
+  {% endif %}
 
-<form class="card-form" method="post">
-  <div class="field">
-    <label>Username</label>
-    <input type="text" name="username" value="{{ form.get('username', '') }}" required autofocus>
-  </div>
-  
-  <div class="field">
-    <label>Password</label>
-    <input type="password" name="password" required>
-  </div>
+  <form action="/users/new" method="post" class="stack">
+    <div class="form-row">
+      <label>
+        Username
+        <span class="hint">Letters, numbers, dots, hyphens, underscores</span>
+        <input name="username" placeholder="john.doe" required maxlength="100" value="{{ form.username or '' }}" autocomplete="off">
+      </label>
+      <label>
+        Password
+        <span class="hint">Minimum 6 characters</span>
+        <input type="password" name="password" placeholder="••••••••" required minlength="6" maxlength="128" autocomplete="new-password">
+      </label>
+    </div>
 
-  <div class="field">
-    <label>Role</label>
-    <select name="role" required>
-      <option value="developer" {% if form.get('role') == 'developer' %}selected{% endif %}>Developer</option>
-      <option value="admin" {% if form.get('role') == 'admin' %}selected{% endif %}>Admin</option>
-    </select>
-  </div>
+    <div class="form-row">
+      <label>
+        Role
+        <span class="hint">Admins can manage services, recipes, and users</span>
+        <select name="role" required>
+          <option value="developer" {% if (form.role or 'developer') == 'developer' %}selected{% endif %}>developer</option>
+          <option value="admin" {% if form.role == 'admin' %}selected{% endif %}>admin</option>
+        </select>
+      </label>
+      <label>
+        Allowed IPs
+        <span class="hint">Comma-separated. Leave blank to allow any IP.</span>
+        <input name="allowed_ips" placeholder="10.0.0.1, 192.168.1.0/24" maxlength="2000" value="{{ form.allowed_ips or '' }}">
+      </label>
+    </div>
 
-  <div class="field">
-    <label>IP Whitelist (Optional)</label>
-    <input type="text" name="ip_address" value="{{ form.get('ip_address', '') }}" placeholder="e.g. 192.168.1.100">
-    <small>Leave blank to allow all IPs.</small>
-  </div>
-
-  <div class="actions mt">
-    <button class="btn primary" type="submit">Create User</button>
-    <a class="btn" href="/users">Cancel</a>
-  </div>
-</form>
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">Create User</button>
+      <a class="btn btn-secondary" href="/users">Cancel</a>
+    </div>
+  </form>
+</div>
 {% endblock %}

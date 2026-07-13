@@ -12,6 +12,12 @@
     <header>
       <a class="brand" href="/services">⚡ Seravops</a>
       {% if current_user %}
+        <nav class="header-nav">
+          <a href="/services" class="nav-link">Services</a>
+          {% if current_user.role.value == 'admin' %}
+          <a href="/users" class="nav-link">Users</a>
+          {% endif %}
+        </nav>
         <div class="account">
           <span class="role-badge {% if current_user.role.value == 'admin' %}admin{% endif %}">{{ current_user.role.value }}</span>
           {% if current_user.role.value == 'admin' %}

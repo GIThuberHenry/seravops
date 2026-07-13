@@ -1,47 +1,86 @@
 {% extends "base.html" %}
-{% block title %}Edit {{ target_user.username }} — Seravops{% endblock %}
-
+{% block title %}Edit · {{ target_user.username }} · Seravops{% endblock %}
 {% block content %}
-<div class="header-row">
-  <h2>Edit User: {{ target_user.username }}</h2>
+<a class="back" href="/users">← Users</a>
+<div class="page-heading">
+  <div>
+    <h1>Edit User</h1>
+    <p class="muted">Update account for <strong>{{ target_user.username }}</strong>.</p>
+  </div>
+  {% if target_user.id != current_user.id %}
+  <div class="page-heading-actions">
+    <button type="button" class="btn btn-danger" id="delete-btn">🗑 Delete User</button>
+  </div>
+  {% endif %}
 </div>
 
-{% if error %}
-<div class="alert error">{{ error }}</div>
-{% endif %}
+{# Hidden delete confirmation #}
+<div id="delete-confirm" hidden style="margin-bottom:20px">
+  <div class="alert alert-error" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <span>⚠️ Delete <strong>{{ target_user.username }}</strong>? Their execution history will be preserved but unlinked. This cannot be undone.</span>
+    <form action="/users/{{ target_user.id }}/delete" method="post" style="display:flex;gap:8px;flex-shrink:0">
+      <button type="submit" class="btn btn-danger btn-sm">Yes, delete</button>
+      <button type="button" class="btn btn-secondary btn-sm" id="cancel-delete-btn">Cancel</button>
+    </form>
+  </div>
+</div>
 
-<form class="card-form" method="post">
-  <div class="field">
-    <label>Username</label>
-    <input type="text" name="username" value="{{ target_user.username }}" required>
-  </div>
-  
-  <div class="field">
-    <label>New Password (Optional)</label>
-    <input type="password" name="password" placeholder="Leave blank to keep current password">
-  </div>
+<div class="form-card">
+  {% if error %}
+  <div class="alert alert-error" style="margin-bottom:20px">{{ error }}</div>
+  {% endif %}
 
-  <div class="field">
-    <label>Role</label>
-    <select name="role" required {% if target_user.id == current_user.id %}disabled{% endif %}>
-      <option value="developer" {% if target_user.role.value == 'developer' %}selected{% endif %}>Developer</option>
-      <option value="admin" {% if target_user.role.value == 'admin' %}selected{% endif %}>Admin</option>
-    </select>
-    {% if target_user.id == current_user.id %}
-      <input type="hidden" name="role" value="{{ target_user.role.value }}">
-      <small>You cannot change your own role.</small>
-    {% endif %}
-  </div>
+  <form action="/users/{{ target_user.id }}/edit" method="post" class="stack">
+    <div class="form-row">
+      <label>
+        Username
+        <span class="hint">Letters, numbers, dots, hyphens, underscores</span>
+        <input name="username" placeholder="john.doe" required maxlength="100" value="{{ form.username or '' }}" autocomplete="off">
+      </label>
+      <label>
+        New Password
+        <span class="hint">Leave blank to keep current password</span>
+        <input type="password" name="password" placeholder="••••••••" minlength="6" maxlength="128" autocomplete="new-password">
+      </label>
+    </div>
 
-  <div class="field">
-    <label>IP Whitelist (Optional)</label>
-    <input type="text" name="ip_address" value="{{ target_user.ip_address or '' }}" placeholder="e.g. 192.168.1.100">
-    <small>Leave blank to allow all IPs.</small>
-  </div>
+    <div class="form-row">
+      <label>
+        Role
+        <span class="hint">Admins can manage services, recipes, and users</span>
+        <select name="role" required>
+          <option value="developer" {% if (form.role or 'developer') == 'developer' %}selected{% endif %}>developer</option>
+          <option value="admin" {% if form.role == 'admin' %}selected{% endif %}>admin</option>
+        </select>
+      </label>
+      <label>
+        Allowed IPs
+        <span class="hint">Comma-separated. Leave blank to allow any IP.</span>
+        <input name="allowed_ips" placeholder="10.0.0.1, 192.168.1.0/24" maxlength="2000" value="{{ form.allowed_ips or '' }}">
+      </label>
+    </div>
 
-  <div class="actions mt">
-    <button class="btn primary" type="submit">Save Changes</button>
-    <a class="btn" href="/users">Cancel</a>
-  </div>
-</form>
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">Save Changes</button>
+      <a class="btn btn-secondary" href="/users">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  const delBtn = document.getElementById('delete-btn');
+  const cancelBtn = document.getElementById('cancel-delete-btn');
+  if (delBtn) {
+    delBtn.addEventListener('click', () => {
+      document.getElementById('delete-confirm').hidden = false;
+      delBtn.hidden = true;
+    });
+  }
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      document.getElementById('delete-confirm').hidden = true;
+      delBtn.hidden = false;
+    });
+  }
+</script>
 {% endblock %}

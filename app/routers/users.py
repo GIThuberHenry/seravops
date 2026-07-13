@@ -1,139 +1,181 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
 
+from app.core.config import get_settings
 from app.core.security import require_admin, require_auth
 from app.db import get_db
 from app.models import User
 from app.models.enums import UserRole
-from app.routers import templates
+from app.schemas.user import UserCreate, UserUpdate
 from app.services import user_service
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(tags=["users"])
+templates = Jinja2Templates(directory=get_settings().template_dir)
 
-@router.get("", response_class=HTMLResponse)
-async def list_users(
+
+# ── List ───────────────────────────────────────────────────────────────────
+
+
+@router.get("/users", response_class=HTMLResponse)
+async def user_list(
     request: Request,
     _admin: Annotated[User, Depends(require_admin)],
     user: Annotated[User, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> HTMLResponse:
-    users = await user_service.get_users(db)
+    users = await user_service.list_users(db)
     return templates.TemplateResponse(
-        request, "users/list.html", {"current_user": user, "users": users}
+        request, "users/list.html", {"users": users, "current_user": user}
     )
 
-@router.get("/new", response_class=HTMLResponse)
-async def new_user_form(
+
+# ── Create ─────────────────────────────────────────────────────────────────
+
+
+@router.get("/users/new", response_class=HTMLResponse)
+async def user_new_page(
     request: Request,
     _admin: Annotated[User, Depends(require_admin)],
     user: Annotated[User, Depends(require_auth)],
 ) -> HTMLResponse:
     return templates.TemplateResponse(
-        request, "users/new.html", {"current_user": user, "form": {}}
+        request, "users/new.html", {"current_user": user, "error": None, "form": {}}
     )
 
-@router.post("/new", response_class=HTMLResponse)
-async def new_user_submit(
+
+@router.post("/users/new", response_class=HTMLResponse)
+async def user_new_submit(
     request: Request,
     _admin: Annotated[User, Depends(require_admin)],
     user: Annotated[User, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    username: Annotated[str, Form()],
-    password: Annotated[str, Form()],
-    role: Annotated[UserRole, Form()],
-    ip_address: Annotated[str, Form()] = "",
+    username: Annotated[str, Form()] = "",
+    password: Annotated[str, Form()] = "",
+    role: Annotated[str, Form()] = "developer",
+    allowed_ips: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
+    form = {"username": username, "role": role, "allowed_ips": allowed_ips}
     try:
-        await user_service.create_user(
-            db=db,
+        data = UserCreate(
             username=username,
             password=password,
-            role=role,
-            ip_address=ip_address if ip_address else None
+            role=UserRole(role),
+            allowed_ips=allowed_ips.strip() or None,
         )
-        return RedirectResponse("/users", status_code=303)
-    except IntegrityError:
+        await user_service.create_user(db, data)
+        return RedirectResponse("/users", status_code=status.HTTP_303_SEE_OTHER)
+    except ValidationError as exc:
+        error = "; ".join(e["msg"] for e in exc.errors())
         return templates.TemplateResponse(
             request, "users/new.html",
-            {
-                "current_user": user,
-                "error": "Username already exists.",
-                "form": {"username": username, "role": role.value, "ip_address": ip_address}
-            },
-            status_code=422,
+            {"current_user": user, "error": error, "form": form},
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+    except HTTPException as exc:
+        return templates.TemplateResponse(
+            request, "users/new.html",
+            {"current_user": user, "error": exc.detail, "form": form},
+            status_code=status.HTTP_409_CONFLICT,
+        )
+    except Exception as exc:
+        return templates.TemplateResponse(
+            request, "users/new.html",
+            {"current_user": user, "error": str(exc), "form": form},
+            status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-@router.get("/{user_id}/edit", response_class=HTMLResponse)
-async def edit_user_form(
-    request: Request,
+
+# ── Edit ───────────────────────────────────────────────────────────────────
+
+
+@router.get("/users/{user_id}/edit", response_class=HTMLResponse)
+async def user_edit_page(
     user_id: int,
+    request: Request,
     _admin: Annotated[User, Depends(require_admin)],
     user: Annotated[User, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> HTMLResponse:
-    target_user = await user_service.get_user_by_id(db, user_id)
-    if not target_user:
-        return HTMLResponse("User not found", status_code=404)
-    
+    target = await user_service.get_user(db, user_id)
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return templates.TemplateResponse(
-        request, "users/edit.html",
-        {"current_user": user, "target_user": target_user}
+        request,
+        "users/edit.html",
+        {
+            "current_user": user,
+            "target_user": target,
+            "error": None,
+            "form": {
+                "username": target.username,
+                "role": target.role.value,
+                "allowed_ips": target.allowed_ips or "",
+            },
+        },
     )
 
-@router.post("/{user_id}/edit", response_class=HTMLResponse)
-async def edit_user_submit(
-    request: Request,
+
+@router.post("/users/{user_id}/edit", response_class=HTMLResponse)
+async def user_edit_submit(
     user_id: int,
+    request: Request,
     _admin: Annotated[User, Depends(require_admin)],
     user: Annotated[User, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    username: Annotated[str, Form()],
-    role: Annotated[UserRole, Form()],
-    ip_address: Annotated[str, Form()] = "",
+    username: Annotated[str, Form()] = "",
+    role: Annotated[str, Form()] = "developer",
+    allowed_ips: Annotated[str, Form()] = "",
     password: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
-    target_user = await user_service.get_user_by_id(db, user_id)
-    if not target_user:
-        return HTMLResponse("User not found", status_code=404)
+    target = await user_service.get_user(db, user_id)
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
+    form = {"username": username, "role": role, "allowed_ips": allowed_ips}
     try:
-        await user_service.update_user(
-            db=db,
-            user=target_user,
+        data = UserUpdate(
             username=username,
-            role=role,
-            ip_address=ip_address if ip_address else None,
-            password=password if password else None
+            role=UserRole(role),
+            allowed_ips=allowed_ips.strip() or None,
+            password=password.strip() or None,
         )
-        return RedirectResponse("/users", status_code=303)
-    except IntegrityError:
+        await user_service.update_user(db, user_id, data)
+        return RedirectResponse("/users", status_code=status.HTTP_303_SEE_OTHER)
+    except ValidationError as exc:
+        error = "; ".join(e["msg"] for e in exc.errors())
         return templates.TemplateResponse(
             request, "users/edit.html",
-            {
-                "current_user": user,
-                "target_user": target_user,
-                "error": "Username already exists."
-            },
-            status_code=422,
+            {"current_user": user, "target_user": target, "error": error, "form": form},
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+    except HTTPException as exc:
+        return templates.TemplateResponse(
+            request, "users/edit.html",
+            {"current_user": user, "target_user": target, "error": exc.detail, "form": form},
+            status_code=status.HTTP_409_CONFLICT,
+        )
+    except Exception as exc:
+        return templates.TemplateResponse(
+            request, "users/edit.html",
+            {"current_user": user, "target_user": target, "error": str(exc), "form": form},
+            status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-@router.post("/{user_id}/delete", response_class=HTMLResponse)
-async def delete_user_submit(
-    request: Request,
+
+# ── Delete ─────────────────────────────────────────────────────────────────
+
+
+@router.post("/users/{user_id}/delete", response_class=HTMLResponse)
+async def user_delete(
     user_id: int,
     _admin: Annotated[User, Depends(require_admin)],
     user: Annotated[User, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> HTMLResponse:
-    target_user = await user_service.get_user_by_id(db, user_id)
-    if not target_user:
-        return HTMLResponse("User not found", status_code=404)
-    if target_user.id == user.id:
-        return HTMLResponse("Cannot delete yourself", status_code=400)
-
-    await user_service.delete_user(db, target_user)
-    return RedirectResponse("/users", status_code=303)
+    await user_service.delete_user(db, user_id, user.id)
+    return RedirectResponse("/users", status_code=status.HTTP_303_SEE_OTHER)

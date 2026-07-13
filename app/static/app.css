@@ -375,3 +375,44 @@ hr.divider { border: none; border-top: 1px solid var(--border); margin: 28px 0; 
   .status-row { gap: 10px; }
   .form-card { padding: 20px; }
 }
+
+/* ── Header nav ── */
+header { display: flex; align-items: center; gap: 0; }
+.brand { margin-right: auto; }
+.header-nav { display: flex; align-items: center; gap: 4px; margin-right: 20px; }
+.nav-link {
+  padding: 6px 14px;
+  border-radius: var(--radius);
+  font-size: .88rem;
+  font-weight: 500;
+  color: var(--text-2);
+  text-decoration: none;
+  transition: background .15s, color .15s;
+}
+.nav-link:hover { background: var(--surface-2); color: var(--text); }
+.nav-link.active { background: var(--surface-2); color: var(--accent); }
+
+/* ── User table ── */
+.user-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .92rem;
+}
+.user-table th {
+  text-align: left;
+  font-size: .75rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.user-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.user-table tbody tr:last-child td { border-bottom: none; }
+.user-table tbody tr:hover { background: var(--surface-2); }
+
