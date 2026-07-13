@@ -29,6 +29,7 @@ Browser / API Client
    ┌────┴────────────────────────────────────┐
    │  Routers (thin HTTP layer)              │
    │  auth / services / recipes / executions │
+   │  users                                  │
    └────┬────────────────────────────────────┘
         │  calls
    ┌────▼────────────────────────────────────┐
@@ -37,6 +38,7 @@ Browser / API Client
    │                ← git_service            │
    │                ← nginx_service          │
    │  auth_service, service_service          │
+   │  user_service                           │
    └────┬────────────────────────────────────┘
         │  SQLAlchemy 2.0 async
    ┌────▼───────┐
@@ -67,14 +69,14 @@ Service
 
 ### Key Tables
 
-| Table              | Purpose                                                      |
-|--------------------|--------------------------------------------------------------|
-| `users`            | Auth principals with `admin` or `developer` role             |
-| `services`         | Registered deployable applications                           |
-| `recipes`          | Named collections of steps, scoped to a service              |
-| `recipe_steps`     | Ordered steps: `kind` ∈ {`command`, `git_pull`, `nginx`}     |
-| `recipe_executions`| A single run of a recipe; tracks status + timestamps         |
-| `execution_logs`   | Per-line stdout/stderr/system messages streamed during a run |
+| Table              | Purpose                                                                    |
+|--------------------|----------------------------------------------------------------------------|
+| `users`            | Auth principals with `admin` or `developer` role; `allowed_ips` for whitelist |
+| `services`         | Registered deployable applications                                         |
+| `recipes`          | Named collections of steps, scoped to a service                            |
+| `recipe_steps`     | Ordered steps: `kind` ∈ {`command`, `git_pull`, `nginx`}                   |
+| `recipe_executions`| A single run of a recipe; tracks status + timestamps                       |
+| `execution_logs`   | Per-line stdout/stderr/system messages streamed during a run               |
 
 ### Enums (`app/models/enums.py`)
 
@@ -170,26 +172,32 @@ File: [`app/core/security.py`](app/core/security.py)
 
 ### HTML UI Routes
 
-| Method | Path                              | Auth    | Description                         |
-|--------|-----------------------------------|---------|-------------------------------------|
-| GET    | `/login`                          | —       | Login page                          |
-| POST   | `/login`                          | —       | Form login → set cookie             |
-| POST   | `/logout`                         | —       | Clear cookie                        |
-| GET    | `/services`                       | Any     | Service list                        |
-| GET    | `/services/new`                   | Admin   | Register service form               |
-| POST   | `/services/new`                   | Admin   | Submit service registration         |
-| GET    | `/services/{id}/recipes`          | Any     | Recipe list for service             |
-| GET    | `/services/{id}/recipes/new`      | Admin   | New recipe form + step builder      |
-| POST   | `/services/{id}/recipes/new`      | Admin   | Submit recipe creation              |
-| GET    | `/recipes/{id}`                   | Any     | Recipe detail + execution history   |
-| POST   | `/executions/run`                 | Any     | Trigger execution (form)            |
-| GET    | `/executions/{id}`                | Any     | Execution detail (HTML/HTMX)        |
-| GET    | `/users`                          | Admin   | User list                           |
-| GET    | `/users/new`                      | Admin   | New user form                       |
-| POST   | `/users/new`                      | Admin   | Submit user creation                |
-| GET    | `/users/{id}/edit`                | Admin   | Edit user form                      |
-| POST   | `/users/{id}/edit`                | Admin   | Submit user update                  |
-| POST   | `/users/{id}/delete`              | Admin   | Delete user                         |
+| Method | Path                              | Auth    | Description                          |
+|--------|-----------------------------------|---------|--------------------------------------|
+| GET    | `/login`                          | —       | Login page                           |
+| POST   | `/login`                          | —       | Form login → set cookie              |
+| POST   | `/logout`                         | —       | Clear cookie                         |
+| GET    | `/services`                       | Any     | Service list                         |
+| GET    | `/services/new`                   | Admin   | Register service form                |
+| POST   | `/services/new`                   | Admin   | Submit service registration          |
+| GET    | `/services/{id}/edit`             | Admin   | Edit service form                    |
+| POST   | `/services/{id}/edit`             | Admin   | Submit service update                |
+| POST   | `/services/{id}/delete`           | Admin   | Delete service (cascades)            |
+| GET    | `/services/{id}/recipes`          | Any     | Recipe list for service              |
+| GET    | `/services/{id}/recipes/new`      | Admin   | New recipe form + step builder       |
+| POST   | `/services/{id}/recipes/new`      | Admin   | Submit recipe creation               |
+| GET    | `/recipes/{id}`                   | Any     | Recipe detail + execution history    |
+| GET    | `/recipes/{id}/edit`              | Admin   | Edit recipe form + step builder      |
+| POST   | `/recipes/{id}/edit`              | Admin   | Submit recipe update                 |
+| POST   | `/recipes/{id}/delete`            | Admin   | Delete recipe + executions           |
+| POST   | `/executions/run`                 | Any     | Trigger execution (form)             |
+| GET    | `/executions/{id}`                | Any     | Execution detail (HTML/HTMX)         |
+| GET    | `/users`                          | Admin   | User list                            |
+| GET    | `/users/new`                      | Admin   | New user form                        |
+| POST   | `/users/new`                      | Admin   | Submit user creation                 |
+| GET    | `/users/{id}/edit`                | Admin   | Edit user form                       |
+| POST   | `/users/{id}/edit`                | Admin   | Submit user update                   |
+| POST   | `/users/{id}/delete`              | Admin   | Delete user                          |
 
 ### JSON API Routes
 
@@ -327,11 +335,9 @@ Key test files:
 ## Future Extension Points
 
 - **More servers**: `config.py` has a `server()` method keyed on `"server_1"` / `"server_2"`; extending to N servers needs an enum or a `servers` table
-- **More step kinds**: Follow the 5-step pattern in `AGENT.md` → Adding a New Step Kind (don't forget to add the kind toggle in `recipes/new.html`)
+- **More step kinds**: Follow the 6-step pattern in `AGENT.md` → Adding a New Step Kind (don't forget to add the kind toggle in both `recipes/new.html` and `recipes/edit.html`)
 - **Durable execution queue**: Replace `BackgroundTasks` with ARQ, Celery, or a worker polling a `job_queue` table
 - **Webhook triggers**: Add a signed `POST /webhooks/{service_slug}/trigger` route that maps to a default recipe
 - **Audit log**: Add a `UserAction` table written by admin-only mutations
 - **Multi-tenant**: Add an `Organization` model and scope services/recipes per org
-- **Recipe editing**: Add `PUT /recipes/{id}` (JSON) and `GET/POST /recipes/{id}/edit` (HTML form) routes
-- **Service deletion**: Add `DELETE /services/{id}` with cascade behaviour and a confirmation UI
-- **IP Whitelisting**: Enforce the `ip_address` field on the `User` model to restrict access by IP
+- **IP Whitelisting**: Wire `User.allowed_ips` into a FastAPI middleware that checks `request.client.host` against the user's stored IPs on every request

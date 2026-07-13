@@ -19,8 +19,9 @@ Developer → picks a service, selects a recipe, triggers an execution, watches 
 - **Safe nginx management** — renders, validates (`nginx -t`), and only applies config if validation passes; a bad config never replaces a good one
 - **Live log streaming** — execution stdout/stderr is committed row-by-row to PostgreSQL; the browser polls with HTMX every 2 seconds for a live-terminal feel
 - **Role-based access control** — JWT auth with `admin` and `developer` roles; only admins can manage users, create services, or build recipes
-- **Full admin web UI** — manage users, register services, and build recipes (with a dynamic step builder) directly in the browser; no API calls required
+- **Full admin web UI** — create, edit, and delete services, recipes, and users directly in the browser with a dynamic step builder; no API calls required
 - **Execution history** — recipe detail pages show the last 20 executions with status, triggering user, and timestamp
+- **IP whitelist field** — each user has an `allowed_ips` field (comma-separated) ready for middleware enforcement
 - **Dual interface** — full HTML/HTMX UI served by Jinja2 templates _and_ a JSON API (documented at `/docs`) for CI/CD or scripting
 
 ---
@@ -115,7 +116,8 @@ app/
 │   ├── git_service.py      # git pull / git clone wrappers
 │   ├── nginx_service.py    # Render → validate → apply nginx config safely
 │   ├── auth_service.py     # Password verification and token issuance
-│   └── service_service.py  # Service CRUD
+│   ├── service_service.py  # Service CRUD (create, update, delete)
+│   └── user_service.py     # User CRUD (create, update, delete, password hashing)
 ├── static/         # Hand-written CSS stylesheet
 ├── templates/      # Jinja2 HTML pages, HTMX fragments, nginx Jinja2 template
 ├── db.py           # Async SQLAlchemy engine and session factory
@@ -133,13 +135,15 @@ docs/               # Extended documentation
 |---|---|---|
 | Service list | `/services` | All |
 | **Register service** | `/services/new` | Admin |
-| Recipe list | `/services/{id}/recipes` | All |
+| **Edit / delete service** | `/services/{id}/edit` | Admin |
+| Recipe list for service | `/services/{id}/recipes` | All |
 | **New recipe builder** | `/services/{id}/recipes/new` | Admin |
+| **Edit / delete recipe** | `/recipes/{id}/edit` | Admin |
 | Recipe detail + execution history | `/recipes/{id}` | All |
 | Live execution log | `/executions/{id}` | All |
 | **User list** | `/users` | Admin |
 | **New user form** | `/users/new` | Admin |
-| **Edit user form** | `/users/{id}/edit` | Admin |
+| **Edit / delete user** | `/users/{id}/edit` | Admin |
 
 ## JSON API Overview
 
@@ -201,11 +205,25 @@ SERVER_1_USER=root
 SERVER_1_PORT=22
 SERVER_1_KEY_PATH=             # Leave empty for local subprocess
 
-SERVER_2_HOST=192.0.2.20      # Real remote server
-SERVER_2_USER=deploy
-SERVER_2_PORT=22
+SERVER_2_HOST=110.239.81.246  # Real remote server
+SERVER_2_USER=root
+SERVER_2_PORT=3097
 SERVER_2_KEY_PATH=/run/secrets/server_2_key   # Mounted SSH private key
 ```
+
+To add a server's SSH key, generate a key pair and push it with `ssh-copy-id`:
+
+```bash
+ssh-keygen -t ed25519 -f secrets/server_2_key -N "" -C "seravops@server_2"
+sshpass -p '<password>' ssh-copy-id -i secrets/server_2_key.pub -o StrictHostKeyChecking=no -p <port> root@<host>
+```
+
+Mount the key into the container by adding to `docker-compose.yml` volumes:
+```yaml
+- ./secrets/server_2_key:/run/secrets/server_2_key:ro
+```
+
+Add `secrets/` to `.gitignore` — private keys must never be committed.
 
 `localhost`, `127.0.0.1`, and `::1` targets use a local subprocess instead of SSH — useful for development and tasks that run on the host running the app container.
 
@@ -231,6 +249,7 @@ A malformed config never replaces a working one. Validation failures are streame
 2. Implement the logic in `app/services/` (follow the `CommandResult` pattern)
 3. Dispatch it from `_execute_step()` in [`app/services/recipe_service.py`](app/services/recipe_service.py)
 4. Add Pydantic validation for required `config` keys in [`app/schemas/recipe.py`](app/schemas/recipe.py)
+5. Add the kind option + fields block to the step builder in [`app/templates/recipes/new.html`](app/templates/recipes/new.html) and [`app/templates/recipes/edit.html`](app/templates/recipes/edit.html)
 
 Keep all orchestration in `recipe_service.py`. Routers validate input, enforce role dependencies, invoke a service, and shape the response — nothing more.
 
