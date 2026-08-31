@@ -114,3 +114,69 @@ async def test_recipe_execution_stops_after_failed_step(session_factory, monkeyp
         completed = await recipe_service.get_execution(db, execution.id)
     assert completed is not None
     assert completed.status == ExecutionStatus.FAILED
+
+
+async def test_update_recipe_after_execution_sets_step_id_null(session_factory) -> None:
+    from app.models.enums import LogStream
+    from app.schemas.recipe import RecipeStepCreate, RecipeUpdate
+
+    async with session_factory() as db:
+        user = User(username="admin2", password_hash=hash_password("secret"), role=UserRole.ADMIN)
+        service = Service(
+            name="Update Demo",
+            slug="update-demo",
+            framework="FastAPI",
+            target_server="server_1",
+            app_path="/tmp/demo",
+        )
+        recipe = Recipe(
+            service=service,
+            name="Original Recipe",
+            steps=[
+                RecipeStep(
+                    position=1,
+                    name="Original Step",
+                    kind=StepKind.COMMAND,
+                    command="echo 1",
+                    config={},
+                )
+            ],
+        )
+        db.add_all([user, recipe])
+        await db.commit()
+        execution = await recipe_service.create_execution(db, recipe.id, user)
+        log = ExecutionLog(
+            execution_id=execution.id,
+            step_id=recipe.steps[0].id,
+            stream=LogStream.STDOUT,
+            message="output",
+        )
+        db.add(log)
+        await db.commit()
+        log_id = log.id
+        recipe_id = recipe.id
+
+    async with session_factory() as db:
+        update_data = RecipeUpdate(
+            name="Updated Recipe",
+            description="New description",
+            steps=[
+                RecipeStepCreate(
+                    position=1,
+                    name="New Step",
+                    kind=StepKind.COMMAND,
+                    command="echo 2",
+                    config={},
+                )
+            ],
+        )
+        updated = await recipe_service.update_recipe(db, recipe_id, update_data)
+        assert updated.name == "Updated Recipe"
+        assert len(updated.steps) == 1
+        assert updated.steps[0].name == "New Step"
+
+    async with session_factory() as db:
+        refreshed_log = await db.get(ExecutionLog, log_id)
+        assert refreshed_log is not None
+        assert refreshed_log.step_id is None
+

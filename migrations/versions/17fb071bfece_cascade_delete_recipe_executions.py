@@ -16,9 +16,10 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    # Drop the existing FK on recipe_executions.recipe_id (no ondelete set)
-    # and recreate it with ON DELETE CASCADE so that deleting a recipe
-    # automatically removes all its executions (and their logs via their own CASCADE).
+    bind = op.get_bind()
+    if bind.engine.name != "postgresql":
+        return
+
     op.drop_constraint(
         "recipe_executions_recipe_id_fkey",
         "recipe_executions",

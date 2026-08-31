@@ -41,7 +41,9 @@ class ExecutionLog(Base):
     execution_id: Mapped[int] = mapped_column(
         ForeignKey("recipe_executions.id", ondelete="CASCADE"), index=True
     )
-    step_id: Mapped[int | None] = mapped_column(ForeignKey("recipe_steps.id"), nullable=True)
+    step_id: Mapped[int | None] = mapped_column(
+        ForeignKey("recipe_steps.id", ondelete="SET NULL"), nullable=True
+    )
     stream: Mapped[LogStream] = mapped_column(Enum(LogStream, native_enum=False))
     message: Mapped[str] = mapped_column(Text)
     exit_code: Mapped[int | None] = mapped_column(Integer, nullable=True)

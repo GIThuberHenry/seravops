@@ -201,13 +201,15 @@ def upgrade() -> None:
             },
         ],
     )
-    for table_name, value in {
-        "users": 2,
-        "services": 1,
-        "recipes": 1,
-        "recipe_steps": 2,
-    }.items():
-        op.execute(sa.text(f"SELECT setval('{table_name}_id_seq', {value}, true)"))
+    bind = op.get_bind()
+    if bind.engine.name == "postgresql":
+        for table_name, value in {
+            "users": 2,
+            "services": 1,
+            "recipes": 1,
+            "recipe_steps": 2,
+        }.items():
+            op.execute(sa.text(f"SELECT setval('{table_name}_id_seq', {value}, true)"))
 
 
 def downgrade() -> None:

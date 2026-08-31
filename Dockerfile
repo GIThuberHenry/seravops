@@ -30,6 +30,7 @@ RUN pip install --no-cache-dir --no-index --find-links=/wheels seravops
 COPY app ./app
 COPY migrations ./migrations
 COPY alembic.ini ./
+COPY pyproject.toml ./
 COPY scripts ./scripts
 RUN chmod +x /app/scripts/*.sh
 
