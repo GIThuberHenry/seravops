@@ -30,7 +30,6 @@ class RecipeUpdate(BaseModel):
     steps: list[RecipeStepCreate] = Field(min_length=1)
 
 
-
 class RecipeStepResponse(RecipeStepCreate):
     model_config = ConfigDict(from_attributes=True)
 

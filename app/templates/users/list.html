@@ -26,7 +26,15 @@
     <tbody>
       {% for u in users %}
       <tr>
-        <td><strong>{{ u.username }}</strong></td>
+        <td>
+          <strong>{{ u.username }}</strong>
+          {% if u.email and u.email != u.username %}
+            <div class="muted" style="font-size:.8rem">{{ u.email }}</div>
+          {% endif %}
+          {% if u.google_id %}
+            <span class="badge badge-blue" style="font-size:.7rem;margin-left:4px">Google</span>
+          {% endif %}
+        </td>
         <td><span class="badge {% if u.role.value == 'admin' %}badge-purple{% else %}badge-blue{% endif %}">{{ u.role.value }}</span></td>
         <td>
           {% if u.allowed_ips %}

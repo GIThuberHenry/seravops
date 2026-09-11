@@ -69,20 +69,32 @@ async def service_new_submit(
     target_server: Annotated[str, Form()] = "server_1",
     app_path: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
-    form = {"name": name, "slug": slug, "framework": framework, "target_server": target_server, "app_path": app_path}
+    form = {
+        "name": name,
+        "slug": slug,
+        "framework": framework,
+        "target_server": target_server,
+        "app_path": app_path,
+    }
     try:
         data = ServiceCreate(**form)
         service = await service_service.create_service(db, data)
-        return RedirectResponse(f"/services/{service.id}/recipes", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(
+            f"/services/{service.id}/recipes", status_code=status.HTTP_303_SEE_OTHER
+        )
     except ValidationError as exc:
         error = "; ".join(e["msg"] for e in exc.errors())
         return templates.TemplateResponse(
-            request, "services/new.html", {"current_user": user, "error": error, "form": form},
+            request,
+            "services/new.html",
+            {"current_user": user, "error": error, "form": form},
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
     except Exception as exc:
         return templates.TemplateResponse(
-            request, "services/new.html", {"current_user": user, "error": str(exc), "form": form},
+            request,
+            "services/new.html",
+            {"current_user": user, "error": str(exc), "form": form},
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -134,21 +146,30 @@ async def service_edit_submit(
     if not service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
 
-    form = {"name": name, "framework": framework, "target_server": target_server, "app_path": app_path}
+    form = {
+        "name": name,
+        "framework": framework,
+        "target_server": target_server,
+        "app_path": app_path,
+    }
     try:
         data = ServiceUpdate(**form)
         await service_service.update_service(db, service_id, data)
-        return RedirectResponse(f"/services/{service_id}/recipes", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(
+            f"/services/{service_id}/recipes", status_code=status.HTTP_303_SEE_OTHER
+        )
     except ValidationError as exc:
         error = "; ".join(e["msg"] for e in exc.errors())
         return templates.TemplateResponse(
-            request, "services/edit.html",
+            request,
+            "services/edit.html",
             {"service": service, "current_user": user, "error": error, "form": form},
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
     except Exception as exc:
         return templates.TemplateResponse(
-            request, "services/edit.html",
+            request,
+            "services/edit.html",
             {"service": service, "current_user": user, "error": str(exc), "form": form},
             status_code=status.HTTP_400_BAD_REQUEST,
         )
@@ -174,4 +195,3 @@ async def service_get(
     if not service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
     return ServiceResponse.model_validate(service)
-

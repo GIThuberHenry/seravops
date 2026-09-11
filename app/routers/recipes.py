@@ -1,7 +1,6 @@
-import json
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
@@ -102,13 +101,15 @@ async def recipe_new_submit(
                 "service_name": step_data.get("nginx_service_name", ""),
             }
 
-        step_schemas.append({
-            "position": i + 1,
-            "name": step_data.get("name", ""),
-            "kind": kind,
-            "command": step_data.get("command") or None,
-            "config": config,
-        })
+        step_schemas.append(
+            {
+                "position": i + 1,
+                "name": step_data.get("name", ""),
+                "kind": kind,
+                "command": step_data.get("command") or None,
+                "config": config,
+            }
+        )
 
     def _render_error(error: str) -> HTMLResponse:
         return templates.TemplateResponse(
@@ -137,7 +138,11 @@ async def recipe_new_submit(
         recipe = await recipe_service.create_recipe(db, data)
         return RedirectResponse(f"/recipes/{recipe.id}", status_code=status.HTTP_303_SEE_OTHER)
     except (ValidationError, ValueError) as exc:
-        msg = "; ".join(e["msg"] for e in exc.errors()) if isinstance(exc, ValidationError) else str(exc)
+        msg = (
+            "; ".join(e["msg"] for e in exc.errors())
+            if isinstance(exc, ValidationError)
+            else str(exc)
+        )
         return _render_error(msg)
     except Exception as exc:
         return _render_error(str(exc))
@@ -199,14 +204,16 @@ def _parse_steps_from_form(raw) -> tuple[list[dict], list[dict]]:
     prefill_steps, step_schemas = [], []
     for i, (_, step_data) in enumerate(sorted(steps_by_index.items())):
         kind = step_data.get("kind", "command")
-        prefill_steps.append({
-            "name": step_data.get("name", ""),
-            "kind": kind,
-            "command": step_data.get("command", ""),
-            "nginx_subdomain": step_data.get("nginx_subdomain", ""),
-            "nginx_port": step_data.get("nginx_port", ""),
-            "nginx_service_name": step_data.get("nginx_service_name", ""),
-        })
+        prefill_steps.append(
+            {
+                "name": step_data.get("name", ""),
+                "kind": kind,
+                "command": step_data.get("command", ""),
+                "nginx_subdomain": step_data.get("nginx_subdomain", ""),
+                "nginx_port": step_data.get("nginx_port", ""),
+                "nginx_service_name": step_data.get("nginx_service_name", ""),
+            }
+        )
         config: dict = {}
         if kind == "nginx":
             config = {
@@ -214,13 +221,15 @@ def _parse_steps_from_form(raw) -> tuple[list[dict], list[dict]]:
                 "upstream_port": int(step_data.get("nginx_port", 0) or 0),
                 "service_name": step_data.get("nginx_service_name", ""),
             }
-        step_schemas.append({
-            "position": i + 1,
-            "name": step_data.get("name", ""),
-            "kind": kind,
-            "command": step_data.get("command") or None,
-            "config": config,
-        })
+        step_schemas.append(
+            {
+                "position": i + 1,
+                "name": step_data.get("name", ""),
+                "kind": kind,
+                "command": step_data.get("command") or None,
+                "config": config,
+            }
+        )
     return step_schemas, prefill_steps
 
 
@@ -311,7 +320,11 @@ async def recipe_edit_submit(
         await recipe_service.update_recipe(db, recipe_id, data)
         return RedirectResponse(f"/recipes/{recipe_id}", status_code=status.HTTP_303_SEE_OTHER)
     except (ValidationError, ValueError) as exc:
-        msg = "; ".join(e["msg"] for e in exc.errors()) if isinstance(exc, ValidationError) else str(exc)
+        msg = (
+            "; ".join(e["msg"] for e in exc.errors())
+            if isinstance(exc, ValidationError)
+            else str(exc)
+        )
         return _render_error(msg)
     except Exception as exc:
         return _render_error(str(exc))
@@ -328,5 +341,6 @@ async def recipe_delete(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
     service_id = recipe.service_id
     await recipe_service.delete_recipe(db, recipe_id)
-    return RedirectResponse(f"/services/{service_id}/recipes", status_code=status.HTTP_303_SEE_OTHER)
-
+    return RedirectResponse(
+        f"/services/{service_id}/recipes", status_code=status.HTTP_303_SEE_OTHER
+    )

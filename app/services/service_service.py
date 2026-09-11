@@ -1,8 +1,7 @@
+from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-
-from fastapi import HTTPException, status
 
 from app.models import Service
 from app.schemas.service import ServiceCreate, ServiceUpdate
@@ -45,4 +44,3 @@ async def delete_service(db: AsyncSession, service_id: int) -> None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
     await db.delete(service)
     await db.commit()
-

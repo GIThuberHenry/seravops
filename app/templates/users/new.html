@@ -4,8 +4,8 @@
 <a class="back" href="/users">← Users</a>
 <div class="page-heading">
   <div>
-    <h1>Create User</h1>
-    <p class="muted">Add a new user to the platform.</p>
+    <h1>Invite / Create User</h1>
+    <p class="muted">Add a new user to the platform. Users can log in with Google using their email address.</p>
   </div>
 </div>
 
@@ -17,18 +17,23 @@
   <form action="/users/new" method="post" class="stack">
     <div class="form-row">
       <label>
-        Username
-        <span class="hint">Letters, numbers, dots, hyphens, underscores</span>
-        <input name="username" placeholder="john.doe" required maxlength="100" value="{{ form.username or '' }}" autocomplete="off">
+        Email (Google Account)
+        <span class="hint">User's Google / Gmail address</span>
+        <input type="email" name="email" placeholder="user@gmail.com" value="{{ form.email or '' }}" autocomplete="off">
       </label>
       <label>
-        Password
-        <span class="hint">Minimum 6 characters</span>
-        <input type="password" name="password" placeholder="••••••••" required minlength="6" maxlength="128" autocomplete="new-password">
+        Username
+        <span class="hint">Optional if email is provided (defaults to email)</span>
+        <input name="username" placeholder="john.doe" maxlength="100" value="{{ form.username or '' }}" autocomplete="off">
       </label>
     </div>
 
     <div class="form-row">
+      <label>
+        Password
+        <span class="hint">Optional if logging in via Google (min 6 chars for local login)</span>
+        <input type="password" name="password" placeholder="••••••••" minlength="6" maxlength="128" autocomplete="new-password">
+      </label>
       <label>
         Role
         <span class="hint">Admins can manage services, recipes, and users</span>
@@ -37,15 +42,18 @@
           <option value="admin" {% if form.role == 'admin' %}selected{% endif %}>admin</option>
         </select>
       </label>
+    </div>
+
+    <div class="form-row">
       <label>
         Allowed IPs
-        <span class="hint">Comma-separated. Leave blank to allow any IP.</span>
+        <span class="hint">Comma-separated CIDRs or IPs. Leave blank to allow any IP.</span>
         <input name="allowed_ips" placeholder="10.0.0.1, 192.168.1.0/24" maxlength="2000" value="{{ form.allowed_ips or '' }}">
       </label>
     </div>
 
     <div class="form-actions">
-      <button type="submit" class="btn-primary">Create User</button>
+      <button type="submit" class="btn-primary">Invite / Create User</button>
       <a class="btn btn-secondary" href="/users">Cancel</a>
     </div>
   </form>

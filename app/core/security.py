@@ -1,3 +1,4 @@
+import ipaddress
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
@@ -12,6 +13,46 @@ from app.db import get_db
 from app.models import User, UserRole
 
 bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP address, supporting reverse proxy headers (X-Forwarded-For)."""
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip.strip()
+    if request.client and request.client.host:
+        return request.client.host
+    return "127.0.0.1"
+
+
+def is_ip_allowed(client_ip_str: str, allowed_ips_str: str | None) -> bool:
+    """Verify whether client IP matches any entry in a comma-separated whitelist (supports CIDR)."""
+    if not allowed_ips_str or not allowed_ips_str.strip():
+        return True
+
+    try:
+        client_ip = ipaddress.ip_address(client_ip_str)
+    except ValueError:
+        return False
+
+    for entry in allowed_ips_str.split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        try:
+            if "/" in entry:
+                if client_ip in ipaddress.ip_network(entry, strict=False):
+                    return True
+            else:
+                if client_ip == ipaddress.ip_address(entry):
+                    return True
+        except ValueError:
+            continue
+
+    return False
 
 
 def create_access_token(user: User) -> str:
@@ -51,6 +92,14 @@ async def require_auth(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User no longer exists"
         )
+
+    client_ip = get_client_ip(request)
+    if not is_ip_allowed(client_ip, user.allowed_ips):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Access denied: IP address {client_ip} is not authorized for this account",
+        )
+
     return user
 
 

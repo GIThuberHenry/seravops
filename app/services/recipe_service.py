@@ -78,7 +78,6 @@ async def delete_recipe(db: AsyncSession, recipe_id: int) -> None:
     await db.commit()
 
 
-
 async def create_execution(db: AsyncSession, recipe_id: int, user: User) -> RecipeExecution:
     if not await db.get(Recipe, recipe_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
@@ -103,7 +102,6 @@ async def get_execution(db: AsyncSession, execution_id: int) -> RecipeExecution 
 async def list_executions(
     db: AsyncSession, recipe_id: int, limit: int = 20
 ) -> list[RecipeExecution]:
-    from app.models.user import User  # avoid circular at module level
 
     return list(
         await db.scalars(

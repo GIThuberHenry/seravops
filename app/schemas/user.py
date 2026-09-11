@@ -4,14 +4,16 @@ from app.models.enums import UserRole
 
 
 class UserCreate(BaseModel):
-    username: str = Field(min_length=2, max_length=100, pattern=r"^[a-zA-Z0-9_.-]+$")
-    password: str = Field(min_length=6, max_length=128)
+    username: str = Field(min_length=2, max_length=100, pattern=r"^[a-zA-Z0-9_.@-]+$")
+    email: str | None = None
+    password: str | None = Field(default=None, min_length=6, max_length=128)
     role: UserRole = UserRole.DEVELOPER
     allowed_ips: str | None = None
 
 
 class UserUpdate(BaseModel):
-    username: str = Field(min_length=2, max_length=100, pattern=r"^[a-zA-Z0-9_.-]+$")
+    username: str = Field(min_length=2, max_length=100, pattern=r"^[a-zA-Z0-9_.@-]+$")
+    email: str | None = None
     role: UserRole = UserRole.DEVELOPER
     allowed_ips: str | None = None
     password: str | None = Field(default=None, min_length=6, max_length=128)
@@ -22,6 +24,8 @@ class UserResponse(BaseModel):
 
     id: int
     username: str
+    email: str | None = None
+    google_id: str | None = None
     role: UserRole
     allowed_ips: str | None
     created_at: str | None = None

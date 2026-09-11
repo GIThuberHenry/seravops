@@ -39,7 +39,8 @@ def upgrade() -> None:
         ondelete="SET NULL",
     )
 
-    # 2. Update recipe_executions.recipe_id -> recipes.id with ON DELETE CASCADE (ensuring MySQL is covered)
+    # 2. Update recipe_executions.recipe_id -> recipes.id with ON DELETE CASCADE
+    # (ensuring MySQL is covered)
     recipe_fk = _get_fk_name("recipe_executions", "recipe_id")
     if recipe_fk:
         op.drop_constraint(recipe_fk, "recipe_executions", type_="foreignkey")

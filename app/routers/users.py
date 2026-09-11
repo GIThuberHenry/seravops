@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
@@ -12,7 +12,7 @@ from app.db import get_db
 from app.models import User
 from app.models.enums import UserRole
 from app.schemas.user import UserCreate, UserUpdate
-from app.services import user_service
+from app.services import email_service, user_service
 
 router = APIRouter(tags=["users"])
 templates = Jinja2Templates(directory=get_settings().template_dir)
@@ -51,40 +51,61 @@ async def user_new_page(
 @router.post("/users/new", response_class=HTMLResponse)
 async def user_new_submit(
     request: Request,
+    background_tasks: BackgroundTasks,
     _admin: Annotated[User, Depends(require_admin)],
     user: Annotated[User, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    email: Annotated[str, Form()] = "",
     username: Annotated[str, Form()] = "",
     password: Annotated[str, Form()] = "",
     role: Annotated[str, Form()] = "developer",
     allowed_ips: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
-    form = {"username": username, "role": role, "allowed_ips": allowed_ips}
+    # If username is omitted, default it to email
+    effective_username = username.strip() or email.strip()
+    form = {
+        "email": email.strip(),
+        "username": effective_username,
+        "role": role,
+        "allowed_ips": allowed_ips,
+    }
     try:
         data = UserCreate(
-            username=username,
-            password=password,
+            email=email.strip() or None,
+            username=effective_username,
+            password=password.strip() or None,
             role=UserRole(role),
             allowed_ips=allowed_ips.strip() or None,
         )
-        await user_service.create_user(db, data)
+        created_user = await user_service.create_user(db, data)
+        if created_user.email:
+            background_tasks.add_task(
+                email_service.send_invitation_email,
+                recipient_email=created_user.email,
+                username=created_user.username,
+                role=created_user.role.value,
+                invited_by=user.username,
+            )
         return RedirectResponse("/users", status_code=status.HTTP_303_SEE_OTHER)
     except ValidationError as exc:
         error = "; ".join(e["msg"] for e in exc.errors())
         return templates.TemplateResponse(
-            request, "users/new.html",
+            request,
+            "users/new.html",
             {"current_user": user, "error": error, "form": form},
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
     except HTTPException as exc:
         return templates.TemplateResponse(
-            request, "users/new.html",
+            request,
+            "users/new.html",
             {"current_user": user, "error": exc.detail, "form": form},
             status_code=status.HTTP_409_CONFLICT,
         )
     except Exception as exc:
         return templates.TemplateResponse(
-            request, "users/new.html",
+            request,
+            "users/new.html",
             {"current_user": user, "error": str(exc), "form": form},
             status_code=status.HTTP_400_BAD_REQUEST,
         )
@@ -113,6 +134,7 @@ async def user_edit_page(
             "error": None,
             "form": {
                 "username": target.username,
+                "email": target.email or "",
                 "role": target.role.value,
                 "allowed_ips": target.allowed_ips or "",
             },
@@ -127,6 +149,7 @@ async def user_edit_submit(
     _admin: Annotated[User, Depends(require_admin)],
     user: Annotated[User, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    email: Annotated[str, Form()] = "",
     username: Annotated[str, Form()] = "",
     role: Annotated[str, Form()] = "developer",
     allowed_ips: Annotated[str, Form()] = "",
@@ -136,10 +159,16 @@ async def user_edit_submit(
     if not target:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    form = {"username": username, "role": role, "allowed_ips": allowed_ips}
+    form = {
+        "email": email.strip(),
+        "username": username.strip(),
+        "role": role,
+        "allowed_ips": allowed_ips,
+    }
     try:
         data = UserUpdate(
-            username=username,
+            email=email.strip() or None,
+            username=username.strip(),
             role=UserRole(role),
             allowed_ips=allowed_ips.strip() or None,
             password=password.strip() or None,
@@ -149,19 +178,22 @@ async def user_edit_submit(
     except ValidationError as exc:
         error = "; ".join(e["msg"] for e in exc.errors())
         return templates.TemplateResponse(
-            request, "users/edit.html",
+            request,
+            "users/edit.html",
             {"current_user": user, "target_user": target, "error": error, "form": form},
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
     except HTTPException as exc:
         return templates.TemplateResponse(
-            request, "users/edit.html",
+            request,
+            "users/edit.html",
             {"current_user": user, "target_user": target, "error": exc.detail, "form": form},
             status_code=status.HTTP_409_CONFLICT,
         )
     except Exception as exc:
         return templates.TemplateResponse(
-            request, "users/edit.html",
+            request,
+            "users/edit.html",
             {"current_user": user, "target_user": target, "error": str(exc), "form": form},
             status_code=status.HTTP_400_BAD_REQUEST,
         )

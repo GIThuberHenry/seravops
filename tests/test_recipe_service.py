@@ -179,4 +179,3 @@ async def test_update_recipe_after_execution_sets_step_id_null(session_factory) 
         refreshed_log = await db.get(ExecutionLog, log_id)
         assert refreshed_log is not None
         assert refreshed_log.step_id is None
-

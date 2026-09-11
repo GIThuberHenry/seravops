@@ -24,9 +24,19 @@ async def create_user(db: AsyncSession, data: UserCreate) -> User:
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Username '{data.username}' already exists",
         )
+    email_clean = data.email.strip().lower() if data.email else None
+    if email_clean:
+        existing_email = await db.scalar(select(User).where(User.email == email_clean))
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Email '{email_clean}' is already registered or invited",
+            )
+
     user = User(
         username=data.username,
-        password_hash=hash_password(data.password),
+        email=email_clean,
+        password_hash=hash_password(data.password) if data.password else None,
         role=data.role,
         allowed_ips=data.allowed_ips or None,
     )
@@ -48,7 +58,17 @@ async def update_user(db: AsyncSession, user_id: int, data: UserUpdate) -> User:
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Username '{data.username}' already exists",
             )
+    email_clean = data.email.strip().lower() if data.email else None
+    if email_clean and email_clean != user.email:
+        existing_email = await db.scalar(select(User).where(User.email == email_clean))
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Email '{email_clean}' is already in use",
+            )
+
     user.username = data.username
+    user.email = email_clean
     user.role = data.role
     user.allowed_ips = data.allowed_ips or None
     if data.password:
