@@ -5,6 +5,8 @@ services:
       target: development
     ports:
       - "7372:7372"
+    env_file:
+      - .env
     environment:
       DEBUG: "true"
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://seravops:seravops@postgres:5432/seravops}
