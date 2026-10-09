@@ -213,7 +213,7 @@ async def _execute_step(step: RecipeStep, recipe: Recipe, on_output: Callable) -
 
 ### 5. Update the step builder frontend
 
-In `app/templates/recipes/new.html`, add a new `kind-fields` block inside the `<template>` for your kind, and add the option to the `<select>`:
+In **both** `app/templates/recipes/new.html` and `app/templates/recipes/edit.html`, add a new `kind-fields` block inside the `<template>` for your kind, and add the option to the `<select>`:
 
 ```html
 <!-- Inside the step <template> -->
@@ -233,7 +233,7 @@ In `app/templates/recipes/new.html`, add a new `kind-fields` block inside the `<
 </div>
 ```
 
-Also update the server-side form parser in `app/routers/recipes.py` to extract and pass the new field into `config`.
+Also update the server-side form parser in `app/routers/recipes.py` (in `_parse_steps_from_form` and `_steps_to_prefill`) to extract and pass the new field into `config`, and add a `model_validator` in `app/schemas/recipe.py` for any required config keys.
 
 ### 6. Write tests
 

@@ -290,7 +290,9 @@ async def create_thing(
 3. Implement logic in `app/services/` returning `CommandResult`
 4. Add dispatch branch in `_execute_step()` in `app/services/recipe_service.py`
 5. Add `model_validator` logic in `app/schemas/recipe.py` for any required `config` keys
-6. Write tests in `tests/test_recipe_service.py` using the mocked SSH pattern
+6. Update server-side form parser in `app/routers/recipes.py` (`_parse_steps_from_form` and `_steps_to_prefill`)
+7. Add the kind toggle and UI fields in **both** `app/templates/recipes/new.html` and `app/templates/recipes/edit.html`
+8. Write tests in `tests/test_recipe_service.py` using the mocked SSH pattern
 
 ---
 
