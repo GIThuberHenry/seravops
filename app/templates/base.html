@@ -12,20 +12,88 @@
     <header>
       <a class="brand" href="/services">⚡ Seravops</a>
       {% if current_user %}
-        <nav class="header-nav">
-          <a href="/services" class="nav-link">Services</a>
-          {% if current_user.role.value == 'admin' %}
-          <a href="/users" class="nav-link">Users</a>
-          {% endif %}
-        </nav>
-        <div class="account">
-          <span class="role-badge {% if current_user.role.value == 'admin' %}admin{% endif %}">{{ current_user.role.value }}</span>
-          {% if current_user.role.value == 'admin' %}
-            <a href="/users">Users</a>
-          {% endif %}
-          <span>{{ current_user.username }}</span>
-          <form action="/logout" method="post"><button class="link" type="submit">Log out</button></form>
+        <div class="burger-wrapper">
+          <div class="header-user-pill">
+            <span class="role-badge {% if current_user.role.value == 'admin' %}admin{% endif %}">{{ current_user.role.value }}</span>
+            <span class="header-username">{{ current_user.username }}</span>
+          </div>
+          <button
+            type="button"
+            class="burger-btn"
+            id="burger-btn"
+            aria-label="Toggle navigation menu"
+            aria-expanded="false"
+            aria-controls="burger-menu"
+          >
+            <span class="burger-bar"></span>
+            <span class="burger-bar"></span>
+            <span class="burger-bar"></span>
+          </button>
+
+          <nav class="burger-menu" id="burger-menu" hidden>
+            <div class="burger-menu-user">
+              <div class="burger-menu-username">{{ current_user.username }}</div>
+              <span class="role-badge {% if current_user.role.value == 'admin' %}admin{% endif %}">{{ current_user.role.value }}</span>
+            </div>
+            <div class="burger-menu-links">
+              <a href="/services" class="burger-link {% if request.url.path.startswith('/services') or request.url.path.startswith('/recipes') %}active{% endif %}">
+                <span class="burger-icon">📦</span>
+                <span>Services &amp; Recipes</span>
+              </a>
+              <a href="/flutter" class="burger-link {% if request.url.path.startswith('/flutter') %}active{% endif %}">
+                <span class="burger-icon">📱</span>
+                <span>Flutter CI/CD</span>
+              </a>
+              {% if current_user.role.value == 'admin' %}
+              <a href="/users" class="burger-link {% if request.url.path.startswith('/users') %}active{% endif %}">
+                <span class="burger-icon">👥</span>
+                <span>Users</span>
+              </a>
+              {% endif %}
+            </div>
+            <div class="burger-menu-footer">
+              <form action="/logout" method="post">
+                <button class="burger-logout-btn" type="submit">
+                  <span class="burger-icon">🚪</span>
+                  <span>Log out</span>
+                </button>
+              </form>
+            </div>
+          </nav>
         </div>
+        <script>
+          (function () {
+            const btn = document.getElementById('burger-btn');
+            const menu = document.getElementById('burger-menu');
+            if (!btn || !menu) return;
+            function closeMenu() {
+              menu.hidden = true;
+              btn.setAttribute('aria-expanded', 'false');
+              btn.classList.remove('open');
+            }
+            btn.addEventListener('click', function (e) {
+              e.stopPropagation();
+              const isOpen = !menu.hidden;
+              if (isOpen) {
+                closeMenu();
+              } else {
+                menu.hidden = false;
+                btn.setAttribute('aria-expanded', 'true');
+                btn.classList.add('open');
+              }
+            });
+            document.addEventListener('click', function (e) {
+              if (!menu.hidden && !menu.contains(e.target) && e.target !== btn) {
+                closeMenu();
+              }
+            });
+            document.addEventListener('keydown', function (e) {
+              if (e.key === 'Escape' && !menu.hidden) {
+                closeMenu();
+              }
+            });
+          })();
+        </script>
       {% endif %}
     </header>
     <main>{% block content %}{% endblock %}</main>

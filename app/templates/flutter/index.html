@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Flutter CI/CD · Seravops{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h1>📱 Flutter Multi-Client CI/CD</h1>
+    <p class="muted">Trigger automated APK/AAB/IPA builds and store deployments on GitHub Actions ({{ github_repo }}).</p>
+  </div>
+  <div class="page-heading-actions">
+    <a class="btn btn-secondary" href="https://github.com/{{ github_repo }}/actions" target="_blank" rel="noopener">
+      ↗ View GitHub Actions
+    </a>
+  </div>
+</div>
+
+<div class="form-card" style="max-width: 100%;">
+  <form action="/flutter/trigger" method="post" class="stack">
+    <div class="form-row">
+      <label>
+        Client App (from /publish)
+        <span class="hint">Select from the 80+ clients or type a client folder / ID</span>
+        <input
+          type="text"
+          name="client"
+          list="flutter-clients-list"
+          value="001. ShiftMMS"
+          placeholder="e.g. 001. ShiftMMS or 001"
+          required
+        >
+        <datalist id="flutter-clients-list">
+          {% for c in clients %}
+          <option value="{{ c }}"></option>
+          {% endfor %}
+        </datalist>
+      </label>
+
+      <label>
+        Target Platform
+        <span class="hint">Android runs on ubuntu-latest; iOS runs on macos-latest</span>
+        <select name="platform">
+          <option value="android" selected>Android (AAB &amp; APK)</option>
+          <option value="ios">iOS (IPA / Xcode)</option>
+          <option value="both">Both (Android + iOS)</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="form-row-3">
+      <label>
+        Pipeline Action
+        <span class="hint">Build Only saves downloadable APK/AAB in GitHub</span>
+        <select name="action">
+          <option value="build_only" selected>Build Only (Safe Test / Artifact)</option>
+          <option value="build_and_publish">Build &amp; Publish to Store (Fastlane)</option>
+        </select>
+      </label>
+
+      <label>
+        Store Release Track
+        <span class="hint">Used when Action is Build &amp; Publish</span>
+        <select name="track">
+          <option value="internal" selected>Internal Testing (Recommended)</option>
+          <option value="alpha">Closed Testing (Alpha)</option>
+          <option value="beta">Open Testing (Beta)</option>
+          <option value="production">Production</option>
+        </select>
+      </label>
+
+      <label>
+        Version Name Override (Optional)
+        <span class="hint">Leave blank to keep client's current versionName</span>
+        <input type="text" name="version_name" placeholder="e.g. 4.3.8">
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>
+        Auto-Increment Build Number (versionCode)
+        <span class="hint">Adds +1 to versionCode in build.gradle &amp; commits back to publish/</span>
+        <select name="bump_version">
+          <option value="false" selected>No — Keep existing build number (Dry-run)</option>
+          <option value="true">Yes — Increment build number (+1)</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">🚀 Trigger GitHub Action</button>
+    </div>
+  </form>
+</div>
+
+{% if executions %}
+<div class="panel">
+  <div class="panel-header">
+    <h2>Recent Flutter CI/CD Triggers</h2>
+    <span class="badge">{{ executions|length }}</span>
+  </div>
+  <div class="exec-list">
+    {% for ex in executions %}
+    <a class="exec-row" href="/executions/{{ ex.id }}">
+      <span class="status status-{{ ex.status.value }}">{{ ex.status.value }}</span>
+      <div class="exec-row-info">
+        <strong>#{{ ex.id }}</strong>
+        <span> · triggered by {{ ex.triggered_by.username }}</span>
+      </div>
+      <div class="exec-row-meta">
+        {% if ex.started_at %}{{ ex.started_at.strftime('%Y-%m-%d %H:%M') }} UTC{% else %}queued{% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

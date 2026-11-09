@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     server_2_port: int = 22
     server_2_key_path: str | None = None
 
+    github_token: str = ""
+    github_repo: str = "Dinamigra/ss-flutter"
+
     template_dir: Path = BASE_DIR / "templates"
     static_dir: Path = BASE_DIR / "static"
 
