@@ -303,7 +303,8 @@ async def run_flutter_trigger(
                 execution_id,
                 step_id,
                 LogStream.STDERR,
-                f"GitHub API returned {resp.status_code}: {resp.text}. Falling back to SSH trigger.",
+                f"GitHub API returned {resp.status_code}: {resp.text}. "
+                "Falling back to SSH trigger.",
             )
 
         # Trigger via SSH git tag push on server_2 (already authenticated as GIThuberHenry)
