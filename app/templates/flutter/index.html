@@ -18,20 +18,12 @@
     <div class="form-row">
       <label>
         Client App (from /publish)
-        <span class="hint">Select from the 80+ clients or type a client folder / ID</span>
-        <input
-          type="text"
-          name="client"
-          list="flutter-clients-list"
-          value="001. ShiftMMS"
-          placeholder="e.g. 001. ShiftMMS or 001"
-          required
-        >
-        <datalist id="flutter-clients-list">
+        <span class="hint">Select from the {{ clients|length }} client apps</span>
+        <select name="client" required>
           {% for c in clients %}
-          <option value="{{ c }}"></option>
+          <option value="{{ c }}" {% if c == '001. ShiftMMS' %}selected{% endif %}>{{ c }}</option>
           {% endfor %}
-        </datalist>
+        </select>
       </label>
 
       <label>
