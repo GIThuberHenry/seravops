@@ -5,14 +5,20 @@
   <div class="status-row">
     <span class="status status-{{ execution.status.value }}">{{ execution.status.value }}</span>
     {% if execution.started_at %}<span class="muted">Started {{ execution.started_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC</span>{% endif %}
+    {% if execution.finished_at %}<span class="muted">· Finished {{ execution.finished_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC</span>{% endif %}
   </div>
-  <div class="terminal">
+  <div class="terminal" id="exec-terminal">
     {% for log in execution.logs %}
       <div class="log-line log-{{ log.stream.value }}">
         <span class="log-step">{% if log.step %}[{{ log.step.name }}]{% else %}[execution]{% endif %}</span>
-        <span>{{ log.message }}</span>
+        <span class="log-msg">{{ log.message | urlize(target='_blank') | safe }}</span>
       </div>
     {% else %}<div class="muted">Waiting for the first log event…</div>{% endfor %}
   </div>
+  <script>
+    (function () {
+      const term = document.getElementById('exec-terminal');
+      if (term) { term.scrollTop = term.scrollHeight; }
+    })();
+  </script>
 </section>
-

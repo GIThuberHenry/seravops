@@ -335,6 +335,15 @@ textarea { resize: vertical; min-height: 80px; }
 .log-stdout { color: var(--text); }
 .log-stderr { color: #fda4af; }
 .log-system { color: #fcd34d; }
+.terminal a {
+  color: #60a5fa;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 500;
+}
+.terminal a:hover {
+  color: #93c5fd;
+}
 
 /* ── Recipe Builder ── */
 .recipe-builder { margin-top: 24px; }

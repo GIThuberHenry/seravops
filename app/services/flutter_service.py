@@ -1,7 +1,11 @@
+import hashlib
+import hmac
 import json
+import re
 import shlex
 import time
 from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 from sqlalchemy import select
@@ -114,6 +118,17 @@ FLUTTER_CLIENTS: list[str] = [
 ]
 
 
+def make_callback_token(execution_id: int) -> str:
+    secret = get_settings().jwt_secret.encode("utf-8")
+    msg = f"flutter-callback:{execution_id}".encode("utf-8")
+    return hmac.new(secret, msg, hashlib.sha256).hexdigest()
+
+
+def verify_callback_token(execution_id: int, token: str) -> bool:
+    expected = make_callback_token(execution_id)
+    return hmac.compare_digest(expected, token)
+
+
 async def get_or_create_flutter_recipe(db: AsyncSession) -> Recipe:
     recipe = await db.scalar(
         select(Recipe)
@@ -144,7 +159,7 @@ async def get_or_create_flutter_recipe(db: AsyncSession) -> Recipe:
         steps=[
             RecipeStep(
                 position=1,
-                name="Trigger GitHub Actions Workflow (Dinamigra/ss-flutter)",
+                name="Flutter Cloud CI/CD",
                 kind=StepKind.COMMAND,
                 command="echo 'Triggered via Seravops Flutter CI/CD'",
                 config={},
@@ -167,6 +182,99 @@ async def create_flutter_execution(db: AsyncSession, user: User) -> RecipeExecut
     await db.commit()
     await db.refresh(execution)
     return execution
+
+
+def _extract_meta_from_logs(logs: list[ExecutionLog]) -> dict[str, str]:
+    for log in logs:
+        if "Triggering Flutter CI/CD:" in log.message:
+            client_m = re.search(r"client='([^']+)'", log.message)
+            plat_m = re.search(r"platform='([^']+)'", log.message)
+            act_m = re.search(r"action='([^']+)'", log.message)
+            trk_m = re.search(r"track='([^']+)'", log.message)
+            return {
+                "client": client_m.group(1) if client_m else "",
+                "platform": plat_m.group(1) if plat_m else "",
+                "action": act_m.group(1) if act_m else "",
+                "track": trk_m.group(1) if trk_m else "",
+            }
+    return {}
+
+
+async def list_flutter_executions(
+    db: AsyncSession, recipe_id: int, limit: int = 15
+) -> list[dict[str, Any]]:
+    executions = list(
+        await db.scalars(
+            select(RecipeExecution)
+            .where(RecipeExecution.recipe_id == recipe_id)
+            .options(
+                selectinload(RecipeExecution.triggered_by),
+                selectinload(RecipeExecution.logs),
+            )
+            .order_by(RecipeExecution.id.desc())
+            .limit(limit)
+        )
+    )
+    results: list[dict[str, Any]] = []
+    for ex in executions:
+        meta = _extract_meta_from_logs(ex.logs)
+        results.append(
+            {
+                "id": ex.id,
+                "status": ex.status,
+                "triggered_by": ex.triggered_by,
+                "started_at": ex.started_at,
+                "finished_at": ex.finished_at,
+                "meta": meta,
+            }
+        )
+    return results
+
+
+async def append_callback_logs(
+    db: AsyncSession,
+    execution_id: int,
+    logs: list[dict[str, Any]],
+    final_status: str | None = None,
+) -> bool:
+    execution = await db.scalar(
+        select(RecipeExecution)
+        .where(RecipeExecution.id == execution_id)
+        .options(selectinload(RecipeExecution.recipe).selectinload(Recipe.steps))
+    )
+    if not execution:
+        return False
+
+    step_id: int | None = None
+    if execution.recipe and execution.recipe.steps:
+        step_id = execution.recipe.steps[0].id
+
+    for entry in logs:
+        stream_str = str(entry.get("stream", "stdout")).lower()
+        if stream_str not in {"stdout", "stderr", "system"}:
+            stream_str = "stdout"
+        msg = str(entry.get("message", ""))
+        code = entry.get("exit_code")
+        if msg:
+            db.add(
+                ExecutionLog(
+                    execution_id=execution_id,
+                    step_id=step_id,
+                    stream=LogStream(stream_str),
+                    message=msg,
+                    exit_code=int(code) if code is not None else None,
+                )
+            )
+
+    if final_status == "success":
+        execution.status = ExecutionStatus.SUCCESS
+        execution.finished_at = datetime.now(UTC)
+    elif final_status == "failed":
+        execution.status = ExecutionStatus.FAILED
+        execution.finished_at = datetime.now(UTC)
+
+    await db.commit()
+    return True
 
 
 async def _append_log(
@@ -230,6 +338,9 @@ async def run_flutter_trigger(
         if execution and execution.recipe and execution.recipe.steps:
             step_id = execution.recipe.steps[0].id
 
+    callback_url = f"{settings.app_url.rstrip('/')}/api/flutter/executions/{execution_id}/callback"
+    callback_token = make_callback_token(execution_id)
+
     payload = {
         "client": client,
         "platform": platform,
@@ -237,6 +348,9 @@ async def run_flutter_trigger(
         "track": track,
         "bump_version": bump_version,
         "version_name": version_name,
+        "execution_id": execution_id,
+        "callback_url": callback_url,
+        "callback_token": callback_token,
     }
 
     await _append_log(
@@ -249,65 +363,7 @@ async def run_flutter_trigger(
     )
 
     try:
-        if settings.github_token:
-            url = (
-                f"https://api.github.com/repos/{settings.github_repo}"
-                "/actions/workflows/deploy.yml/dispatches"
-            )
-            headers = {
-                "Accept": "application/vnd.github+json",
-                "Authorization": f"Bearer {settings.github_token}",
-                "X-GitHub-Api-Version": "2022-11-28",
-            }
-            body = {
-                "ref": "master",
-                "inputs": {
-                    "client": client,
-                    "platform": platform,
-                    "action": action,
-                    "track": track,
-                    "bump_version": bump_version,
-                    "version_name": version_name,
-                },
-            }
-            async with httpx.AsyncClient(timeout=20.0) as http_client:
-                resp = await http_client.post(url, headers=headers, json=body)
-            if resp.status_code in {200, 201, 204}:
-                await _append_log(
-                    session_factory,
-                    execution_id,
-                    step_id,
-                    LogStream.STDOUT,
-                    f"Dispatched workflow via GitHub REST API (HTTP {resp.status_code}).",
-                )
-                await _append_log(
-                    session_factory,
-                    execution_id,
-                    step_id,
-                    LogStream.STDOUT,
-                    f"View live run: https://github.com/{settings.github_repo}/actions",
-                )
-                await _append_log(
-                    session_factory,
-                    execution_id,
-                    step_id,
-                    LogStream.SYSTEM,
-                    "Step finished with exit code 0",
-                    exit_code=0,
-                )
-                await _set_status(session_factory, execution_id, ExecutionStatus.SUCCESS)
-                return
-
-            await _append_log(
-                session_factory,
-                execution_id,
-                step_id,
-                LogStream.STDERR,
-                f"GitHub API returned {resp.status_code}: {resp.text}. "
-                "Falling back to SSH trigger.",
-            )
-
-        # Trigger via SSH git tag push on server_2 (already authenticated as GIThuberHenry)
+        # Trigger via SSH git tag push on server_2 (carries callback_url & callback_token)
         tag_name = f"cicd-trigger-{platform}-{int(time.time())}"
         payload_json = json.dumps(payload)
         q_tag = shlex.quote(tag_name)
@@ -324,14 +380,11 @@ async def run_flutter_trigger(
             "  git config user.email 'seravops@shiftsoft.org'; "
             "fi; "
             f"git remote set-url origin {q_repo} 2>/dev/null || git remote add origin {q_repo}; "
-            "echo 'Fetching latest master commit from GitHub...'; "
-            "git fetch --depth=1 origin master; "
+            "git fetch -q --depth=1 origin master; "
             f"git tag -a {q_tag} FETCH_HEAD -m {q_msg}; "
-            f"echo 'Pushing trigger tag {tag_name} to GitHub Actions...'; "
-            f"git push origin refs/tags/{q_tag}; "
+            f"git push -q origin refs/tags/{q_tag}; "
             f"git tag -d {q_tag} >/dev/null 2>&1 || true; "
-            f"echo 'Successfully triggered GitHub Actions workflow!'; "
-            f"echo 'Monitor run at: https://github.com/{settings.github_repo}/actions'"
+            "echo '✅ Dispatched job to GitHub Actions cloud runner.'"
         )
 
         target = settings.server("server_2")
@@ -346,18 +399,26 @@ async def run_flutter_trigger(
             )
 
         result = await ssh_service.execute(cmd, target, on_output)
+        if result.exit_code != 0:
+            await _append_log(
+                session_factory,
+                execution_id,
+                step_id,
+                LogStream.STDERR,
+                f"Failed to dispatch trigger (exit code {result.exit_code}).",
+                exit_code=result.exit_code,
+            )
+            await _set_status(session_factory, execution_id, ExecutionStatus.FAILED)
+            return
+
         await _append_log(
             session_factory,
             execution_id,
             step_id,
             LogStream.SYSTEM,
-            f"Step finished with exit code {result.exit_code}",
-            exit_code=result.exit_code,
+            "⏳ Waiting for GitHub Actions runner to start and stream live build steps...",
         )
-        if result.exit_code == 0:
-            await _set_status(session_factory, execution_id, ExecutionStatus.SUCCESS)
-        else:
-            await _set_status(session_factory, execution_id, ExecutionStatus.FAILED)
+        # Execution remains RUNNING until the GitHub Actions runner sends final callback
     except Exception as exc:
         logger.exception("flutter_trigger_failed", execution_id=execution_id)
         await _append_log(

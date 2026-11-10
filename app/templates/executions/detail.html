@@ -1,7 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Execution #{{ execution.id }} · Seravops{% endblock %}
 {% block content %}
+{% if execution.recipe.name == 'Flutter Multi-Client CI/CD' %}
+<a class="back" href="/flutter">← Flutter CI/CD</a>
+{% else %}
 <a class="back" href="/recipes/{{ execution.recipe.id }}">← {{ execution.recipe.name }}</a>
+{% endif %}
 <div class="page-heading">
   <div>
     <h1>Execution #{{ execution.id }}</h1>

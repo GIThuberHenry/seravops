@@ -92,9 +92,20 @@
     {% for ex in executions %}
     <a class="exec-row" href="/executions/{{ ex.id }}">
       <span class="status status-{{ ex.status.value }}">{{ ex.status.value }}</span>
-      <div class="exec-row-info">
+      <div class="exec-row-info" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
         <strong>#{{ ex.id }}</strong>
-        <span> · triggered by {{ ex.triggered_by.username }}</span>
+        {% if ex.meta.client %}
+          <strong style="color: var(--text);">{{ ex.meta.client }}</strong>
+        {% endif %}
+        {% if ex.meta.platform %}
+          <span class="badge badge-blue">{{ ex.meta.platform }}</span>
+        {% endif %}
+        {% if ex.meta.action %}
+          <span class="badge {% if ex.meta.action == 'build_and_publish' %}badge-green{% else %}badge-purple{% endif %}">
+            {{ 'publish (' ~ ex.meta.track ~ ')' if ex.meta.action == 'build_and_publish' else 'build only' }}
+          </span>
+        {% endif %}
+        <span>· by {{ ex.triggered_by.username }}</span>
       </div>
       <div class="exec-row-meta">
         {% if ex.started_at %}{{ ex.started_at.strftime('%Y-%m-%d %H:%M') }} UTC{% else %}queued{% endif %}
