@@ -7,7 +7,6 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
-import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
@@ -119,8 +118,8 @@ FLUTTER_CLIENTS: list[str] = [
 
 
 def make_callback_token(execution_id: int) -> str:
-    secret = get_settings().jwt_secret.encode("utf-8")
-    msg = f"flutter-callback:{execution_id}".encode("utf-8")
+    secret = get_settings().jwt_secret.encode()
+    msg = f"flutter-callback:{execution_id}".encode()
     return hmac.new(secret, msg, hashlib.sha256).hexdigest()
 
 
