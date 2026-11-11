@@ -322,6 +322,10 @@ textarea { resize: vertical; min-height: 80px; }
 /* ── Terminal / execution log ── */
 #execution-status { margin-top: 24px; }
 .status-row { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
+.terminal-container {
+  position: relative;
+  width: 100%;
+}
 .terminal {
   min-height: 280px; max-height: 65vh; overflow: auto;
   padding: 18px 20px;
@@ -329,6 +333,50 @@ textarea { resize: vertical; min-height: 80px; }
   border-radius: var(--radius);
   background: #03070f;
   font: .83rem/1.65 'JetBrains Mono', ui-monospace, monospace;
+}
+.terminal-scroll-btn {
+  position: absolute;
+  bottom: 18px;
+  right: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(21, 30, 53, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--text);
+  border: 1px solid var(--border-2);
+  border-radius: 9999px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(59, 130, 246, 0.15);
+  cursor: pointer;
+  z-index: 10;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+}
+.terminal-scroll-btn:hover {
+  background: var(--surface-3);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 12px var(--accent-glow);
+}
+.terminal-scroll-btn.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+.terminal-scroll-btn svg {
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+.terminal-scroll-btn:hover svg {
+  transform: translateY(2px);
 }
 .log-line { display: flex; gap: 14px; white-space: pre-wrap; }
 .log-step { flex: 0 0 180px; color: #3d5080; }
@@ -428,6 +476,12 @@ hr.divider { border: none; border-top: 1px solid var(--border); margin: 28px 0; 
   .log-line { flex-direction: column; gap: 0; }
   .status-row { gap: 10px; }
   .form-card { padding: 20px; }
+  .terminal-scroll-btn {
+    bottom: 12px;
+    right: 14px;
+    padding: 6px 12px;
+    font-size: 0.75rem;
+  }
 }
 
 /* ── Header & Burger Navbar ── */

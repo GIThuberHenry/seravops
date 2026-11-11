@@ -7,18 +7,103 @@
     {% if execution.started_at %}<span class="muted">Started {{ execution.started_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC</span>{% endif %}
     {% if execution.finished_at %}<span class="muted">· Finished {{ execution.finished_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC</span>{% endif %}
   </div>
-  <div class="terminal" id="exec-terminal">
-    {% for log in execution.logs %}
-      <div class="log-line log-{{ log.stream.value }}">
-        <span class="log-step">{% if log.step %}[{{ log.step.name }}]{% else %}[execution]{% endif %}</span>
-        <span class="log-msg">{{ log.message | urlize(target='_blank') | safe }}</span>
-      </div>
-    {% else %}<div class="muted">Waiting for the first log event…</div>{% endfor %}
+  <div class="terminal-container">
+    <div class="terminal" id="exec-terminal">
+      {% for log in execution.logs %}
+        <div class="log-line log-{{ log.stream.value }}">
+          <span class="log-step">{% if log.step %}[{{ log.step.name }}]{% else %}[execution]{% endif %}</span>
+          <span class="log-msg">{{ log.message | urlize(target='_blank') | safe }}</span>
+        </div>
+      {% else %}<div class="muted">Waiting for the first log event…</div>{% endfor %}
+    </div>
+    <button type="button" class="terminal-scroll-btn" id="terminal-scroll-btn" onclick="window.jumpTerminalToBottom && window.jumpTerminalToBottom()" aria-label="Jump to latest logs" title="Jump to latest logs">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 5v14M19 12l-7 7-7-7"/>
+      </svg>
+      <span>Jump to latest</span>
+    </button>
   </div>
   <script>
     (function () {
-      const term = document.getElementById('exec-terminal');
-      if (term) { term.scrollTop = term.scrollHeight; }
+      const currentExecId = {{ execution.id }};
+
+      if (!window._seravopsTerminal || window._seravopsTerminal.executionId !== currentExecId) {
+        window._seravopsTerminal = {
+          executionId: currentExecId,
+          userScrolledUp: false,
+          savedScrollTop: null,
+          threshold: 80
+        };
+      }
+
+      if (!window._seravopsListenersAttached) {
+        window._seravopsListenersAttached = true;
+
+        document.addEventListener('scroll', function (e) {
+          if (e.target && e.target.id === 'exec-terminal') {
+            const term = e.target;
+            const distFromBottom = term.scrollHeight - term.clientHeight - term.scrollTop;
+            const isNearBottom = distFromBottom <= (window._seravopsTerminal ? window._seravopsTerminal.threshold : 80);
+            if (window._seravopsTerminal) {
+              window._seravopsTerminal.userScrolledUp = !isNearBottom;
+              window._seravopsTerminal.savedScrollTop = term.scrollTop;
+            }
+            const btn = document.getElementById('terminal-scroll-btn');
+            if (btn) {
+              btn.classList.toggle('visible', !isNearBottom);
+            }
+          }
+        }, true);
+
+        document.addEventListener('htmx:beforeSwap', function (evt) {
+          const term = document.getElementById('exec-terminal');
+          if (term && window._seravopsTerminal) {
+            const distFromBottom = term.scrollHeight - term.clientHeight - term.scrollTop;
+            window._seravopsTerminal.userScrolledUp = distFromBottom > window._seravopsTerminal.threshold;
+            window._seravopsTerminal.savedScrollTop = term.scrollTop;
+          }
+        });
+
+        window.jumpTerminalToBottom = function () {
+          const term = document.getElementById('exec-terminal');
+          const btn = document.getElementById('terminal-scroll-btn');
+          if (window._seravopsTerminal) {
+            window._seravopsTerminal.userScrolledUp = false;
+          }
+          if (btn) btn.classList.remove('visible');
+          if (term) {
+            term.scrollTo({ top: term.scrollHeight, behavior: 'smooth' });
+            if (window._seravopsTerminal) {
+              window._seravopsTerminal.savedScrollTop = term.scrollHeight;
+            }
+          }
+        };
+
+        window.applyTerminalScroll = function () {
+          const term = document.getElementById('exec-terminal');
+          const btn = document.getElementById('terminal-scroll-btn');
+          if (!term) return;
+
+          const state = window._seravopsTerminal;
+          if (state && state.userScrolledUp && typeof state.savedScrollTop === 'number') {
+            term.scrollTop = state.savedScrollTop;
+            if (btn) btn.classList.add('visible');
+          } else {
+            term.scrollTop = term.scrollHeight;
+            if (btn) btn.classList.remove('visible');
+          }
+        };
+
+        document.addEventListener('htmx:afterSettle', function () {
+          if (window.applyTerminalScroll) {
+            window.applyTerminalScroll();
+          }
+        });
+      }
+
+      if (window.applyTerminalScroll) {
+        window.applyTerminalScroll();
+      }
     })();
   </script>
 </section>
