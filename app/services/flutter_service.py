@@ -114,6 +114,7 @@ FLUTTER_CLIENTS: list[str] = [
     "ShiftAcademy",
     "app1",
     "ikapetra",
+    "999. Fastlane Test",
 ]
 
 
