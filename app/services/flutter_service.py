@@ -519,9 +519,9 @@ def build_enriched_catalog(executions: list[dict[str, Any]]) -> tuple[list[dict[
         entry = dict(item)
         entry["last_android"] = last_android_by_client.get(folder)
         entry["last_ios"] = last_ios_by_client.get(folder)
-        if entry["last_android"] and entry["last_android"].get("version"):
+        if entry["last_android"] and entry["last_android"].get("version") and not entry.get("android_version_name"):
             entry["android_version_name"] = entry["last_android"]["version"]
-        if entry["last_ios"] and entry["last_ios"].get("version"):
+        if entry["last_ios"] and entry["last_ios"].get("version") and not entry.get("ios_version_name"):
             entry["ios_version_name"] = entry["last_ios"]["version"]
         enriched.append(entry)
 

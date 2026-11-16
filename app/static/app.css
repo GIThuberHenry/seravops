@@ -943,22 +943,28 @@ main:has(.pipeline-run-page) {
 .horizontal-stepper {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   padding-top: 12px;
+  padding-bottom: 2px;
   border-top: 1px solid var(--border);
+  scrollbar-width: thin;
 }
 .h-step-pill {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 6px 12px;
+  gap: 6px;
+  padding: 5px 10px;
   border-radius: var(--radius-sm);
-  font-size: .78rem;
+  font-size: .74rem;
   font-weight: 600;
   background: var(--surface-2);
   border: 1px solid var(--border);
   color: var(--muted);
+  white-space: nowrap;
+  flex: 1 1 auto;
+  justify-content: center;
 }
 .h-step-pill.h-step-success {
   background: rgba(34, 197, 94, .1);
@@ -1200,6 +1206,23 @@ main:has(.pipeline-run-page) {
   color: #93c5fd;
   font-size: .84rem;
   margin-bottom: 16px;
+}
+.selected-client-banner[hidden],
+.flutter-tab-section[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 720px) {
+  .flutter-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+  .flutter-tab-btn {
+    justify-content: center;
+    padding: 8px 10px;
+    font-size: .78rem;
+  }
 }
 
 /* Recent CI/CD Run Visual Cards */

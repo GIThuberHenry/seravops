@@ -106,10 +106,15 @@
             Per-client company mapping, Android/iOS signing readiness, version alignment, and live App Store Connect check.
           </p>
         </div>
-        <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
           <span class="text-xs muted">
             Showing <strong id="catalog-visible-count" style="color: var(--text);">{{ app_catalog|length }}</strong> of {{ app_catalog|length }} apps
           </span>
+          <form action="/flutter/catalog/refresh" method="post" style="margin: 0;">
+            <button type="submit" class="btn btn-secondary btn-sm" title="Re-scan publish/ directory on server_2">
+              🔄 Sync Repo Catalog
+            </button>
+          </form>
         </div>
       </div>
 

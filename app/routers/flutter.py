@@ -131,48 +131,74 @@ async def flutter_store_status(
         vers = asc_info.get("versions") or []
         blds = asc_info.get("builds") or []
         v_str = (
-            ", ".join(f"<b>v{v['version_string']}</b> ({v['state']})" for v in vers)
+            " · ".join(
+                f"<span class='badge badge-green'>v{v['version_string']} ({v['state']})</span>"
+                for v in vers
+            )
             if vers
-            else "None"
+            else "<span class='muted'>None</span>"
         )
         b_str = (
-            ", ".join(f"<b>#{b['version']}</b> ({b['state']} · {b['uploaded_at']})" for b in blds[:3])
+            " ".join(
+                f"<span class='badge badge-blue'>#{b['version']} · {b['state']} ({b['uploaded_at']})</span>"
+                for b in blds[:3]
+            )
             if blds
-            else "None"
+            else "<span class='muted'>None</span>"
         )
-        asc_html = (
-            f"<div style='margin-top:8px; display:grid; gap:4px; font-size:.84rem;'>"
-            f"<div>🍏 <strong>App Store Connect:</strong> {asc_info.get('name')} (<code>{asc_info.get('bundle_id')}</code> · ID {asc_info.get('app_id')})</div>"
-            f"<div>📦 <strong>Store Versions:</strong> {v_str}</div>"
-            f"<div>✈️ <strong>TestFlight Builds:</strong> {b_str}</div>"
-            f"</div>"
-        )
+        asc_html = f"""
+        <div style="margin-top:14px; padding:14px 16px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); display:grid; gap:10px; font-size:.84rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>🍏 <strong>App Store Connect Live Status</strong> · <span style="color:var(--text);">{asc_info.get('name')}</span></div>
+            <span class="badge mono">{asc_info.get('bundle_id')} · ID {asc_info.get('app_id')}</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="muted" style="min-width:125px;">📦 Store Versions:</span>
+            {v_str}
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="muted" style="min-width:125px;">✈️ TestFlight Builds:</span>
+            {b_str}
+          </div>
+        </div>
+        """
     elif asc_info.get("configured"):
         msg = asc_info.get("message") or asc_info.get("error") or "Not found on App Store Connect"
-        asc_html = f"<div class='muted' style='margin-top:6px; font-size:.82rem;'>🍏 App Store Connect: {msg}</div>"
+        asc_html = f"<div class='alert' style='margin-top:12px; background:var(--surface-2); border:1px solid var(--border); font-size:.82rem;'>🍏 <strong>App Store Connect:</strong> {msg}</div>"
     else:
-        asc_html = "<div class='muted' style='margin-top:6px; font-size:.82rem;'>🍏 App Store Connect live query: check repo metadata above</div>"
+        asc_html = "<div class='alert' style='margin-top:12px; background:var(--surface-2); border:1px solid var(--border); font-size:.82rem;'>🍏 <strong>App Store Connect:</strong> Live query ready when ASC_KEY_P8 is configured.</div>"
 
     html = f"""
-    <div style="padding:14px 16px; background:var(--surface-3); border:1px solid var(--border-2); border-radius:var(--radius-sm); margin-top:8px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:8px;">
-        <strong>🔍 Live Inspection: {app_entry['folder']} ({app_entry.get('company_name') or 'N/A'})</strong>
-        <span class="badge">Company ID #{app_entry.get('company_id') or '?'} · {app_entry.get('company_slug') or 'no-slug'}.shiftsoft.org</span>
-      </div>
-      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:10px; font-size:.84rem;">
+    <div style="display:grid; gap:14px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding:12px 16px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm);">
         <div>
-          <div class="muted">🤖 Android Repo & CI</div>
-          <div>Package: <code>{app_entry.get('android_app_id') or 'N/A'}</code></div>
-          <div>Version: <strong>v{app_entry.get('android_version_name') or '?'}</strong> (build {app_entry.get('android_build_num') or '?'})</div>
-          <div>Keystore: {'✅ Present' if app_entry.get('has_keystore') else '❌ Missing'} · Firebase: {'✅' if app_entry.get('has_google_services') else '❌'}</div>
-          <div style="margin-top:4px;">Last CI: {and_html}</div>
+          <div style="font-size:1.02rem; font-weight:700; color:var(--text);">{app_entry['folder']}</div>
+          <div class="muted text-xs" style="margin-top:2px;">Company: <strong style="color:var(--text);">{app_entry.get('company_name') or 'N/A'}</strong> · Domain: <code>{app_entry.get('company_slug') or 'no-slug'}.shiftsoft.org</code></div>
         </div>
-        <div>
-          <div class="muted">🍎 iOS Repo & CI</div>
-          <div>Bundle ID: <code>{app_entry.get('ios_bundle_id') or 'N/A'}</code> (Team {app_entry.get('ios_team_id') or '?'})</div>
-          <div>Version: <strong>v{app_entry.get('ios_version_name') or '?'}</strong> (build {app_entry.get('ios_build_num') or '?'})</div>
-          <div>Xcodeproj: {'✅ Ready' if app_entry.get('ios_ready') else '❌ Incomplete'} · Plist: {'✅' if app_entry.get('has_ios_plist') else '❌'}</div>
-          <div style="margin-top:4px;">Last CI: {ios_html}</div>
+        <span class="badge badge-blue">Company ID #{app_entry.get('company_id') or '?'}</span>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:12px; font-size:.84rem;">
+        <div style="padding:14px 16px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); display:grid; gap:7px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong>🤖 Android Config</strong>
+            {'<span class="badge badge-green">✓ Ready</span>' if app_entry.get('android_ready') else '<span class="badge badge-red">⚠ Incomplete</span>'}
+          </div>
+          <div><span class="muted">Package:</span> <code class="mono">{app_entry.get('android_app_id') or 'N/A'}</code></div>
+          <div><span class="muted">Version:</span> <strong class="mono">v{app_entry.get('android_version_name') or '?'}</strong> <span class="muted">(build {app_entry.get('android_build_num') or '?'} · code {app_entry.get('android_version_code') or '?'})</span></div>
+          <div><span class="muted">Signing:</span> {'✅ Keystore' if app_entry.get('has_keystore') else '❌ Missing Keystore'} · {'✅ Firebase JSON' if app_entry.get('has_google_services') else '❌ Missing JSON'}</div>
+          <div style="padding-top:4px; border-top:1px solid var(--border);"><span class="muted">Last CI:</span> {and_html}</div>
+        </div>
+
+        <div style="padding:14px 16px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); display:grid; gap:7px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong>🍎 iOS Config</strong>
+            {'<span class="badge badge-green">✓ Ready</span>' if app_entry.get('ios_ready') else '<span class="badge badge-yellow">⚠ Incomplete</span>'}
+          </div>
+          <div><span class="muted">Bundle ID:</span> <code class="mono">{app_entry.get('ios_bundle_id') or 'N/A'}</code></div>
+          <div><span class="muted">Version:</span> <strong class="mono">v{app_entry.get('ios_version_name') or '?'}</strong> <span class="muted">(build {app_entry.get('ios_build_num') or '?'} · Team {app_entry.get('ios_team_id') or '?'})</span></div>
+          <div><span class="muted">Xcode:</span> {'✅ Runner.xcodeproj' if app_entry.get('ios_ready') else '❌ Missing'} · {'✅ GoogleService-Info.plist' if app_entry.get('has_ios_plist') else '❌ Missing Plist'}</div>
+          <div style="padding-top:4px; border-top:1px solid var(--border);"><span class="muted">Last CI:</span> {ios_html}</div>
         </div>
       </div>
       {asc_html}

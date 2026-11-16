@@ -95,6 +95,7 @@ async def get_execution(db: AsyncSession, execution_id: int) -> RecipeExecution 
         .options(
             selectinload(RecipeExecution.recipe).selectinload(Recipe.service),
             selectinload(RecipeExecution.logs).selectinload(ExecutionLog.step),
+            selectinload(RecipeExecution.triggered_by),
         )
     )
 
