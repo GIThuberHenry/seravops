@@ -537,6 +537,108 @@ def build_enriched_catalog(executions: list[dict[str, Any]]) -> tuple[list[dict[
     return enriched, stats
 
 
+def query_google_play_live(package_name: str) -> dict[str, Any]:
+    """Query Google Play Android Developer API (v3) for live track releases."""
+    settings = get_settings()
+    raw_sa = settings.play_store_credentials_json.strip()
+    if not raw_sa or not package_name:
+        return {
+            "configured": False,
+            "error": "Google Play Service Account JSON not configured on server",
+        }
+
+    try:
+        import urllib.parse
+        import jwt
+
+        sa_str = raw_sa if raw_sa.startswith("{") else base64.b64decode(raw_sa).decode("utf-8")
+        sa = json.loads(sa_str)
+        now = int(time.time())
+        assertion = jwt.encode(
+            {
+                "iss": sa["client_email"],
+                "scope": "https://www.googleapis.com/auth/androidpublisher",
+                "aud": "https://oauth2.googleapis.com/token",
+                "iat": now - 30,
+                "exp": now + 3600,
+            },
+            sa["private_key"],
+            algorithm="RS256",
+        )
+        token_data = urllib.parse.urlencode(
+            {
+                "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+                "assertion": assertion,
+            }
+        ).encode("utf-8")
+        tok_req = urllib.request.Request(
+            "https://oauth2.googleapis.com/token", data=token_data, method="POST"
+        )
+        with urllib.request.urlopen(tok_req, timeout=10) as tok_resp:
+            access_token = json.loads(tok_resp.read().decode("utf-8"))["access_token"]
+
+        pkg_q = urllib.parse.quote(package_name)
+        edit_req = urllib.request.Request(
+            f"https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{pkg_q}/edits",
+            data=b"{}",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(edit_req, timeout=10) as edit_resp:
+            edit_id = json.loads(edit_resp.read().decode("utf-8"))["id"]
+
+        tracks_req = urllib.request.Request(
+            f"https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{pkg_q}/edits/{edit_id}/tracks",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        with urllib.request.urlopen(tracks_req, timeout=10) as tracks_resp:
+            tracks_data = json.loads(tracks_resp.read().decode("utf-8"))
+
+        tracks_list = []
+        for t in tracks_data.get("tracks") or []:
+            rels = t.get("releases") or []
+            if not rels:
+                continue
+            r0 = rels[0]
+            vcodes = r0.get("versionCodes") or []
+            builds = [
+                str(int(vc) - 1048576) if str(vc).isdigit() and int(vc) > 1048576 else str(vc)
+                for vc in vcodes
+            ]
+            tracks_list.append(
+                {
+                    "track": t.get("track"),
+                    "name": r0.get("name") or "",
+                    "version_codes": vcodes,
+                    "builds": builds,
+                    "status": r0.get("status") or "",
+                }
+            )
+
+        return {
+            "configured": True,
+            "found": True,
+            "package_name": package_name,
+            "service_account": sa.get("client_email"),
+            "tracks": tracks_list,
+        }
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="ignore")[:240]
+        if exc.code == 404:
+            return {
+                "configured": True,
+                "found": False,
+                "package_name": package_name,
+                "message": f"Package '{package_name}' not found in Google Play Console",
+            }
+        return {"configured": True, "found": False, "error": f"Play API HTTP {exc.code}: {body}"}
+    except Exception as exc:
+        return {"configured": True, "found": False, "error": str(exc)}
+
+
 def query_app_store_live(bundle_id: str) -> dict[str, Any]:
     """Query Apple App Store Connect API for live App Store version and TestFlight builds."""
     settings = get_settings()

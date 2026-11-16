@@ -315,7 +315,7 @@
                         hx-target="#store-modal-body"
                         hx-swap="innerHTML"
                         onclick='openStoreModal({{ app.folder | tojson }})'>
-                        🍎 Check App Store
+                        🔍 Check Store Status
                       </button>
                     </div>
                   </td>
@@ -424,7 +424,7 @@
   <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="store-modal-title">
     <div class="modal-header">
       <div>
-        <h2 id="store-modal-title">🍎 App Store &amp; Repository Status</h2>
+        <h2 id="store-modal-title">🔍 Google Play, App Store &amp; Repo Status</h2>
         <p class="muted text-xs" id="store-modal-subtitle" style="margin-top: 2px;">Checking live store metadata...</p>
       </div>
       <button type="button" class="btn btn-secondary btn-sm" onclick="closeStoreModal()">✕ Close</button>

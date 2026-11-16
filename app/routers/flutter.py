@@ -125,6 +125,8 @@ async def flutter_store_status(
         )
 
     bundle_id = app_entry.get("ios_bundle_id") or app_entry.get("android_app_id") or ""
+    pkg_id = app_entry.get("android_app_id") or bundle_id
+    play_info = flutter_service.query_google_play_live(pkg_id) if pkg_id else {"configured": False}
     asc_info = flutter_service.query_app_store_live(bundle_id) if bundle_id else {"configured": False}
 
     # Render a clean inline status card
@@ -141,6 +143,40 @@ async def flutter_store_status(
         if last_ios
         else "<span class='muted'>No CI build triggered yet</span>"
     )
+
+    if play_info.get("found"):
+        t_list = play_info.get("tracks") or []
+        t_rows = []
+        for t in t_list:
+            b_cls = "badge-green" if t["track"] == "production" else "badge-blue"
+            vc_str = ", ".join(
+                f"code {vc} (#{b})" for vc, b in zip(t["version_codes"], t["builds"])
+            )
+            t_rows.append(
+                f"<div style='display:flex; align-items:center; gap:8px; flex-wrap:wrap;'>"
+                f"<span class='badge {b_cls}' style='min-width:95px; justify-content:center;'>{t['track']}</span>"
+                f"<strong>{t['name'] or 'Release'}</strong>"
+                f"<span class='mono muted text-xs'>({vc_str})</span>"
+                f"<span class='badge'>{t['status']}</span>"
+                f"</div>"
+            )
+        t_html = "".join(t_rows) if t_rows else "<span class='muted'>No active track releases</span>"
+        play_html = f"""
+        <div style="margin-top:4px; padding:14px 16px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); display:grid; gap:10px; font-size:.84rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>🤖 <strong>Google Play Console Live Tracks</strong></div>
+            <span class="badge mono">{play_info.get('package_name')}</span>
+          </div>
+          <div style="display:grid; gap:7px;">
+            {t_html}
+          </div>
+        </div>
+        """
+    elif play_info.get("configured"):
+        p_msg = play_info.get("message") or play_info.get("error") or "Not found on Google Play"
+        play_html = f"<div class='alert' style='margin-top:4px; background:var(--surface-2); border:1px solid var(--border); font-size:.82rem;'>🤖 <strong>Google Play Console:</strong> {p_msg}</div>"
+    else:
+        play_html = ""
 
     if asc_info.get("found"):
         vers = asc_info.get("versions") or []
@@ -216,6 +252,7 @@ async def flutter_store_status(
           <div style="padding-top:4px; border-top:1px solid var(--border);"><span class="muted">Last CI:</span> {ios_html}</div>
         </div>
       </div>
+      {play_html}
       {asc_html}
     </div>
     """
