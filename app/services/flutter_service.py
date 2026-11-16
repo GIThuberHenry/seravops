@@ -110,6 +110,7 @@ FLUTTER_CLIENTS: list[str] = [
     "156. GKKA Jemaat Palu",
     "156. GPIL JVDM",
     "160. GSRI Bekasi",
+    "176. IKA PETRA",
     "AmbassadorSchool",
     "ShiftAcademy",
     "app1",
