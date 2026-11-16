@@ -1,0 +1,228 @@
+<div id="flutter-overview-container"
+  style="display: contents;"
+  {% if active_executions %}
+    hx-get="/flutter/overview-partial"
+    hx-trigger="every 3s"
+    hx-swap="outerHTML"
+  {% endif %}>
+
+  <!-- 1. LIVE ACTIVE PIPELINE SECTION (order: 1) -->
+  <section id="section-live-active" class="live-overview-banner" style="order: 1;">
+    <div class="live-status-strip {% if active_executions %}has-active{% endif %}">
+      <div class="live-status-left">
+        {% if active_executions %}
+          <span class="pulse-dot"></span>
+          <span>
+            <strong>{{ active_executions|length }} Active CI/CD Pipeline{{ 's' if active_executions|length != 1 else '' }}</strong>
+            running on GitHub Actions
+          </span>
+          <span class="badge badge-blue">Auto-updating every 3s</span>
+        {% else %}
+          <span class="idle-dot"></span>
+          <span class="muted">No active builds running right now — all cloud runners idle</span>
+        {% endif %}
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button
+          type="button"
+          class="btn btn-secondary btn-sm"
+          hx-get="/flutter/overview-partial"
+          hx-target="#flutter-overview-container"
+          hx-swap="outerHTML">
+          🔄 Refresh Status
+        </button>
+      </div>
+    </div>
+
+    {% if active_executions %}
+      <div class="live-pipeline-grid">
+        {% for ex in active_executions %}
+          {% set p = ex.pipeline if ex.pipeline is defined and ex.pipeline else {} %}
+          {% set m = ex.meta if ex.meta is defined and ex.meta else {} %}
+          {% set st = ex.status.value if ex.status is defined and ex.status.value is defined else (ex.status if ex.status is defined else p.get('status', 'running')) %}
+          {% set client_name = p.get('client') or m.get('client') or 'Flutter Client App' %}
+          {% set plat = p.get('platform') or m.get('platform') or 'android' %}
+          {% set act = p.get('action') or m.get('action') or 'build_only' %}
+          {% set trk = p.get('track') or m.get('track') or 'internal' %}
+          {% set pct = p.get('progress_pct', 15) %}
+
+          <div class="live-pipeline-card">
+            <div class="live-pipeline-top">
+              <div class="live-pipeline-title-group">
+                <div class="live-pipeline-title">
+                  <span class="status status-{{ st }}">{{ st }}</span>
+                  <span>{{ client_name }}</span>
+                  <span class="muted text-sm">#{{ ex.id }}</span>
+                </div>
+                <div class="live-pipeline-meta">
+                  <span class="badge badge-blue">
+                    {% if plat == 'ios' %}🍎 iOS{% elif plat == 'both' %}🤖🍎 Android + iOS{% else %}🤖 Android{% endif %}
+                  </span>
+                  <span class="badge {% if act == 'build_and_publish' %}badge-green{% else %}badge-purple{% endif %}">
+                    {% if act == 'build_and_publish' %}🚀 Publish → {{ trk|capitalize }}{% else %}📦 Build Only{% endif %}
+                  </span>
+                  {% if p.get('app_id') %}
+                    <span class="badge mono">{{ p.get('app_id') }}</span>
+                  {% endif %}
+                  {% if p.get('version_name') %}
+                    <span class="badge badge-blue mono">
+                      v{{ p.get('version_name') }}{% if p.get('version_code') %} ({{ p.get('version_code') }}){% endif %}
+                    </span>
+                  {% endif %}
+                  {% if p.get('duration') %}
+                    <span class="badge">⏱ {{ p.get('duration') }}</span>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="live-pipeline-actions">
+                {% if p.get('github_run_url') %}
+                  <a href="{{ p.get('github_run_url') }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
+                    ↗ GitHub Run
+                  </a>
+                {% endif %}
+                <a href="/flutter/runs/{{ ex.id }}" class="btn btn-primary btn-sm">
+                  📡 Open Visual Tracker →
+                </a>
+              </div>
+            </div>
+
+            <div class="pipeline-progress-wrap">
+              <div class="pipeline-progress-header">
+                <div class="pipeline-current-step">
+                  <span class="step-spinner"></span>
+                  <span>{{ p.get('current_step_title') or 'Running cloud build pipeline...' }}</span>
+                </div>
+                <span class="pipeline-pct-label">{{ pct }}%</span>
+              </div>
+              <div class="pipeline-progress-track">
+                <div class="pipeline-progress-fill status-{{ st }}" style="width: {{ pct }}%;"></div>
+              </div>
+            </div>
+
+            {% if p.get('steps') %}
+              <div class="horizontal-stepper">
+                {% for step in p.get('steps', []) %}
+                  <div class="h-step-pill h-step-{{ step.status }}">
+                    {% if step.status == 'success' %}
+                      <span>✓</span>
+                    {% elif step.status == 'running' %}
+                      <span class="step-spinner" style="width:11px;height:11px;border-width:1.8px;"></span>
+                    {% elif step.status == 'failed' %}
+                      <span>✕</span>
+                    {% else %}
+                      <span>{{ step.number }}</span>
+                    {% endif %}
+                    <span>{{ step.title }}</span>
+                  </div>
+                  {% if not loop.last %}
+                    <span class="h-step-arrow">→</span>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </section>
+
+  <!-- 3. RECENT CI/CD RUNS SECTION (order: 4) -->
+  <section id="section-runs" class="panel flutter-tab-section" data-section="runs" style="order: 4; margin-top: 0;">
+    <div class="panel-header">
+      <div>
+        <h2>🕓 Recent CI/CD Runs</h2>
+        <p class="muted text-xs" style="margin-top: 3px;">
+          Visual pipeline history — click any run to inspect step-by-step progress &amp; store delivery status.
+        </p>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="badge">{{ executions|length if executions is defined else 0 }} runs</span>
+      </div>
+    </div>
+
+    {% if executions %}
+      <div class="recent-runs-list">
+        {% for ex in executions %}
+          {% set p = ex.pipeline if ex.pipeline is defined and ex.pipeline else {} %}
+          {% set m = ex.meta if ex.meta is defined and ex.meta else {} %}
+          {% set st = ex.status.value if ex.status is defined and ex.status.value is defined else (ex.status if ex.status is defined else p.get('status', 'pending')) %}
+          {% set client_name = p.get('client') or m.get('client') or 'Flutter Client App' %}
+          {% set plat = p.get('platform') or m.get('platform') or 'android' %}
+          {% set act = p.get('action') or m.get('action') or 'build_only' %}
+          {% set trk = p.get('track') or m.get('track') or 'internal' %}
+          {% set steps = p.get('steps', []) %}
+
+          <a class="recent-run-card" href="/flutter/runs/{{ ex.id }}">
+            <div class="recent-run-main">
+              <div class="recent-run-title-row">
+                <span class="status status-{{ st }}">{{ st }}</span>
+                <strong style="font-size: .95rem; color: var(--text);">{{ client_name }}</strong>
+                <span class="muted text-xs">#{{ ex.id }}</span>
+                <span class="badge badge-blue">
+                  {% if plat == 'ios' %}🍎 iOS{% elif plat == 'both' %}🤖🍎 Both{% else %}🤖 Android{% endif %}
+                </span>
+                <span class="badge {% if act == 'build_and_publish' %}badge-green{% else %}badge-purple{% endif %}">
+                  {% if act == 'build_and_publish' %}Publish · {{ trk }}{% else %}Build Only{% endif %}
+                </span>
+                {% if p.get('version_name') %}
+                  <span class="badge mono">
+                    v{{ p.get('version_name') }}{% if p.get('version_code') %} ({{ p.get('version_code') }}){% endif %}
+                  </span>
+                {% endif %}
+              </div>
+              <div class="recent-run-sub-row">
+                {% if p.get('app_id') %}
+                  <span class="mono">{{ p.get('app_id') }}</span>
+                  <span>·</span>
+                {% endif %}
+                <span>
+                  Triggered by <strong>{{ ex.triggered_by.username if ex.triggered_by and ex.triggered_by.username is defined else (ex.triggered_by or 'system') }}</strong>
+                </span>
+              </div>
+            </div>
+
+            <div class="recent-run-stepper-col">
+              {% if steps %}
+                <div class="mini-step-bar" title="Pipeline progress: {{ p.get('progress_pct', 0) }}%">
+                  {% for s in steps %}
+                    <span class="mini-step-seg seg-{{ s.status }}" title="Step {{ s.number }}: {{ s.title }} ({{ s.status }})"></span>
+                  {% endfor %}
+                </div>
+              {% endif %}
+              <div class="mini-step-caption">
+                {% if st == 'failed' and p.get('summary_message') %}
+                  <span style="color: var(--red);">✕ {{ p.get('summary_message') }}</span>
+                {% elif st == 'success' and p.get('summary_message') %}
+                  <span style="color: var(--green);">✓ {{ p.get('summary_message') }}</span>
+                {% elif p.get('current_step_title') %}
+                  <span>{{ p.get('current_step_title') }}</span>
+                {% else %}
+                  <span>View visual pipeline tracker →</span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="recent-run-meta-col">
+              {% if p.get('duration') %}
+                <strong style="color: var(--text);">⏱ {{ p.get('duration') }}</strong>
+              {% endif %}
+              <span>
+                {% if ex.started_at %}
+                  {{ ex.started_at.strftime('%Y-%m-%d %H:%M') if ex.started_at.strftime is defined else ex.started_at }} UTC
+                {% else %}
+                  queued
+                {% endif %}
+              </span>
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state" style="padding: 36px 20px;">
+        <p style="margin: 0;">No Flutter CI/CD builds have been triggered yet. Select an app above to launch your first build.</p>
+      </div>
+    {% endif %}
+  </section>
+
+</div>

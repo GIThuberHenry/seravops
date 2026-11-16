@@ -1,118 +1,602 @@
 {% extends "base.html" %}
-{% block title %}Flutter CI/CD · Seravops{% endblock %}
+{% block title %}Flutter CI/CD Center · Seravops{% endblock %}
 {% block content %}
-<div class="page-heading">
-  <div>
-    <h1>📱 Flutter Multi-Client CI/CD</h1>
-    <p class="muted">Trigger automated APK/AAB/IPA builds and store deployments on GitHub Actions ({{ github_repo }}).</p>
+{% set stats = catalog_stats if catalog_stats is defined and catalog_stats else {
+  'total': (catalog|length if catalog is defined else (clients|length if clients is defined else 0)),
+  'android_ready': 0,
+  'ios_ready': 0,
+  'active_runs': (active_executions|length if active_executions is defined else 0)
+} %}
+{% set app_catalog = catalog if catalog is defined and catalog else [] %}
+
+<div class="flutter-dashboard">
+  <!-- Page Heading -->
+  <div class="page-heading">
+    <div>
+      <h1>📱 Flutter Multi-Client CI/CD Center</h1>
+      <p class="muted">
+        Visual build pipeline tracker, multi-client publish directory, and live store readiness monitor ({{ github_repo }}).
+      </p>
+    </div>
+    <div class="page-heading-actions">
+      <button type="button" class="btn btn-primary" onclick="scrollToTriggerForm()">
+        🚀 Trigger Build / Deploy
+      </button>
+      <a class="btn btn-secondary" href="https://github.com/{{ github_repo }}/actions" target="_blank" rel="noopener">
+        ↗ GitHub Actions
+      </a>
+    </div>
   </div>
-  <div class="page-heading-actions">
-    <a class="btn btn-secondary" href="https://github.com/{{ github_repo }}/actions" target="_blank" rel="noopener">
-      ↗ View GitHub Actions
-    </a>
+
+  <!-- Summary KPI Strip -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div>
+        <div class="kpi-label">Total Client Apps</div>
+        <div class="kpi-value">{{ stats.total }}</div>
+        <div class="kpi-sub">Configured in publish/ directory</div>
+      </div>
+      <div class="kpi-icon">🏢</div>
+    </div>
+
+    <div class="kpi-card">
+      <div>
+        <div class="kpi-label">Android Ready</div>
+        <div class="kpi-value" style="color: #86efac;">{{ stats.android_ready }}</div>
+        <div class="kpi-sub">Keystore &amp; Firebase verified</div>
+      </div>
+      <div class="kpi-icon">🤖</div>
+    </div>
+
+    <div class="kpi-card">
+      <div>
+        <div class="kpi-label">iOS Ready</div>
+        <div class="kpi-value" style="color: #93c5fd;">{{ stats.ios_ready }}</div>
+        <div class="kpi-sub">Xcode Bundle &amp; Plist verified</div>
+      </div>
+      <div class="kpi-icon">🍎</div>
+    </div>
+
+    <div class="kpi-card {% if stats.active_runs > 0 %}kpi-active-glow{% endif %}">
+      <div>
+        <div class="kpi-label">Active Builds</div>
+        <div class="kpi-value" {% if stats.active_runs > 0 %}style="color: #60a5fa;"{% endif %}>
+          {{ stats.active_runs }}
+        </div>
+        <div class="kpi-sub">
+          {% if stats.active_runs > 0 %}Live on GitHub Actions{% else %}All runners idle{% endif %}
+        </div>
+      </div>
+      <div class="kpi-icon">⚡</div>
+    </div>
   </div>
-</div>
 
-<div class="form-card" style="max-width: 100%;">
-  <form action="/flutter/trigger" method="post" class="stack">
-    <div class="form-row">
-      <label>
-        Client App (from /publish)
-        <span class="hint">Select from the {{ clients|length }} client apps</span>
-        <select name="client" required>
-          {% for c in clients %}
-          <option value="{{ c }}" {% if c == '001. ShiftMMS' %}selected{% endif %}>{{ c }}</option>
-          {% endfor %}
-        </select>
-      </label>
-
-      <label>
-        Target Platform
-        <span class="hint">Android runs on ubuntu-latest; iOS runs on macos-latest</span>
-        <select name="platform">
-          <option value="android" selected>Android (AAB &amp; APK)</option>
-          <option value="ios">iOS (IPA / Xcode)</option>
-          <option value="both">Both (Android + iOS)</option>
-        </select>
-      </label>
+  <!-- Section Navigation Tabs -->
+  <div class="flutter-nav-bar">
+    <div class="flutter-tabs" role="tablist">
+      <button type="button" class="flutter-tab-btn active" data-tab="all" onclick="switchFlutterTab('all')">
+        <span>✨ All Sections</span>
+      </button>
+      <button type="button" class="flutter-tab-btn" data-tab="directory" onclick="switchFlutterTab('directory')">
+        <span>📱 App Directory &amp; Store Status</span>
+        <span class="flutter-tab-count">{{ app_catalog|length or stats.total }}</span>
+      </button>
+      <button type="button" class="flutter-tab-btn" data-tab="trigger" onclick="switchFlutterTab('trigger')">
+        <span>🚀 Trigger Build / Deploy</span>
+      </button>
+      <button type="button" class="flutter-tab-btn" data-tab="runs" onclick="switchFlutterTab('runs')">
+        <span>🕓 Recent CI/CD Runs</span>
+        <span class="flutter-tab-count">{{ executions|length if executions is defined else 0 }}</span>
+      </button>
     </div>
-
-    <div class="form-row-3">
-      <label>
-        Pipeline Action
-        <span class="hint">Build Only saves downloadable APK/AAB in GitHub</span>
-        <select name="action">
-          <option value="build_only" selected>Build Only (Safe Test / Artifact)</option>
-          <option value="build_and_publish">Build &amp; Publish to Store (Fastlane)</option>
-        </select>
-      </label>
-
-      <label>
-        Store Release Track
-        <span class="hint">Used when Action is Build &amp; Publish</span>
-        <select name="track">
-          <option value="internal" selected>Internal Testing (Recommended)</option>
-          <option value="alpha">Closed Testing (Alpha)</option>
-          <option value="beta">Open Testing (Beta)</option>
-          <option value="production">Production</option>
-        </select>
-      </label>
-
-      <label>
-        Version Name Override (Optional)
-        <span class="hint">Leave blank to keep client's current versionName</span>
-        <input type="text" name="version_name" placeholder="e.g. 4.3.8">
-      </label>
-    </div>
-
-    <div class="form-row">
-      <label>
-        Auto-Increment Build Number (versionCode)
-        <span class="hint">Adds +1 to versionCode in build.gradle &amp; commits back to publish/</span>
-        <select name="bump_version">
-          <option value="false" selected>No — Keep existing build number (Dry-run)</option>
-          <option value="true">Yes — Increment build number (+1)</option>
-        </select>
-      </label>
-    </div>
-
-    <div class="form-actions">
-      <button type="submit" class="btn-primary">🚀 Trigger GitHub Action</button>
-    </div>
-  </form>
-</div>
-
-{% if executions %}
-<div class="panel">
-  <div class="panel-header">
-    <h2>Recent Flutter CI/CD Triggers</h2>
-    <span class="badge">{{ executions|length }}</span>
   </div>
-  <div class="exec-list">
-    {% for ex in executions %}
-    <a class="exec-row" href="/executions/{{ ex.id }}">
-      <span class="status status-{{ ex.status.value }}">{{ ex.status.value }}</span>
-      <div class="exec-row-info" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-        <strong>#{{ ex.id }}</strong>
-        {% if ex.meta.client %}
-          <strong style="color: var(--text);">{{ ex.meta.client }}</strong>
-        {% endif %}
-        {% if ex.meta.platform %}
-          <span class="badge badge-blue">{{ ex.meta.platform }}</span>
-        {% endif %}
-        {% if ex.meta.action %}
-          <span class="badge {% if ex.meta.action == 'build_and_publish' %}badge-green{% else %}badge-purple{% endif %}">
-            {{ 'publish (' ~ ex.meta.track ~ ')' if ex.meta.action == 'build_and_publish' else 'build only' }}
+
+  <!-- Main Dashboard Flex Flow -->
+  <div class="flutter-dashboard-flow" style="display: flex; flex-direction: column; gap: 24px;">
+
+    <!-- Includes Live Active Pipeline (order: 1) and Recent CI/CD Runs (order: 4) -->
+    {% include "flutter/_overview.html" %}
+
+    <!-- 1. APP DIRECTORY & STORE STATUS (order: 2) -->
+    <section id="section-directory" class="panel flutter-tab-section" data-section="directory" style="order: 2; margin-top: 0;">
+      <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
+        <div>
+          <h2>📱 App Directory &amp; Store Status</h2>
+          <p class="muted text-xs" style="margin-top: 3px;">
+            Per-client company mapping, Android/iOS signing readiness, version alignment, and live App Store Connect check.
+          </p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span class="text-xs muted">
+            Showing <strong id="catalog-visible-count" style="color: var(--text);">{{ app_catalog|length }}</strong> of {{ app_catalog|length }} apps
           </span>
-        {% endif %}
-        <span>· by {{ ex.triggered_by.username }}</span>
+        </div>
       </div>
-      <div class="exec-row-meta">
-        {% if ex.started_at %}{{ ex.started_at.strftime('%Y-%m-%d %H:%M') }} UTC{% else %}queued{% endif %}
+
+      {% if app_catalog %}
+        <!-- Search & Filter Bar -->
+        <div class="directory-toolbar">
+          <div class="directory-search-wrap">
+            <span class="directory-search-icon">🔍</span>
+            <input
+              type="search"
+              id="catalog-search"
+              placeholder="Search by client name, company slug, package ID, or company ID..."
+              oninput="filterCatalog()"
+              autocomplete="off">
+          </div>
+          <div class="directory-filters">
+            <button type="button" class="filter-pill active" data-filter="all" onclick="setCatalogFilter('all', this)">
+              All ({{ app_catalog|length }})
+            </button>
+            <button type="button" class="filter-pill" data-filter="both-ready" onclick="setCatalogFilter('both-ready', this)">
+              ✓ Ready (Android &amp; iOS)
+            </button>
+            <button type="button" class="filter-pill" data-filter="built-recently" onclick="setCatalogFilter('built-recently', this)">
+              🕓 Built Recently
+            </button>
+            <button type="button" class="filter-pill" data-filter="incomplete" onclick="setCatalogFilter('incomplete', this)">
+              ⚠ Incomplete / Stub
+            </button>
+          </div>
+        </div>
+
+        <!-- App Directory Table -->
+        <div class="app-directory-table-wrap">
+          <table class="app-directory-table" id="catalog-table">
+            <thead>
+              <tr>
+                <th>Client &amp; Company</th>
+                <th>🤖 Android Config &amp; Status</th>
+                <th>🍎 iOS Config &amp; Status</th>
+                <th>Quick Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for app in app_catalog %}
+                {% set pkg_id = app.android_app_id or app.ios_bundle_id or '' %}
+                {% set both_ready = 'true' if (app.android_ready and app.ios_ready) else 'false' %}
+                {% set built_recently = 'true' if (app.last_android or app.last_ios) else 'false' %}
+                {% set is_incomplete = 'true' if (not app.android_ready or not app.ios_ready) else 'false' %}
+                {% set search_blob = (
+                  (app.folder or '') ~ ' ' ~
+                  (app.company_id|string if app.company_id is not none else '') ~ ' ' ~
+                  (app.company_name or '') ~ ' ' ~
+                  (app.company_slug or '') ~ ' ' ~
+                  pkg_id
+                )|lower %}
+
+                <tr
+                  class="catalog-row"
+                  data-search="{{ search_blob }}"
+                  data-both-ready="{{ both_ready }}"
+                  data-built-recently="{{ built_recently }}"
+                  data-incomplete="{{ is_incomplete }}">
+
+                  <!-- Client & Company -->
+                  <td>
+                    <div class="app-client-cell">
+                      <div class="app-folder-title">
+                        <span>{{ app.folder }}</span>
+                        {% if app.company_id is not none %}
+                          <span class="badge badge-blue">ID #{{ app.company_id }}</span>
+                        {% endif %}
+                      </div>
+                      <div class="app-company-line">
+                        {% if app.company_name %}
+                          <strong style="color: #cbd5e1;">{{ app.company_name }}</strong>
+                        {% endif %}
+                        {% if app.company_slug %}
+                          <span class="app-slug-pill">{{ app.company_slug }}.shiftsoft.org</span>
+                        {% endif %}
+                      </div>
+                      {% if pkg_id %}
+                        <code class="app-pkg-id">{{ pkg_id }}</code>
+                      {% else %}
+                        <span class="muted text-xs">No bundle/package ID configured</span>
+                      {% endif %}
+                    </div>
+                  </td>
+
+                  <!-- Android Config & Status -->
+                  <td>
+                    <div class="platform-cfg-cell">
+                      <div class="platform-cfg-top">
+                        {% if app.android_ready %}
+                          <span class="badge badge-green">✓ Ready</span>
+                        {% elif not app.has_keystore %}
+                          <span class="badge badge-red">⚠ Missing Keystore</span>
+                        {% else %}
+                          <span class="badge badge-yellow">⚠ Incomplete</span>
+                        {% endif %}
+                        <span class="cfg-check {{ 'ok' if app.has_keystore else 'miss' }}" title="Android Release Keystore">
+                          {{ '✓' if app.has_keystore else '✕' }} Keystore
+                        </span>
+                        <span class="cfg-check {{ 'ok' if app.has_google_services else 'miss' }}" title="Firebase google-services.json">
+                          {{ '✓' if app.has_google_services else '✕' }} Firebase
+                        </span>
+                      </div>
+
+                      <div class="text-xs">
+                        {% if app.android_version_name %}
+                          <span class="version-pill">
+                            v{{ app.android_version_name }}{% if app.android_build_num %} ({{ app.android_build_num }}){% elif app.android_version_code %} ({{ app.android_version_code }}){% endif %}
+                          </span>
+                          {% if app.android_version_code %}
+                            <span class="muted">· code {{ app.android_version_code }}</span>
+                          {% endif %}
+                        {% else %}
+                          <span class="muted">Version not set</span>
+                        {% endif %}
+                      </div>
+
+                      {% if app.last_android %}
+                        <a
+                          href="/flutter/runs/{{ app.last_android.id }}"
+                          class="last-run-pill status-{{ app.last_android.status }}"
+                          title="Open visual run #{{ app.last_android.id }}">
+                          <span>●</span>
+                          <span>#{{ app.last_android.id }} · {{ app.last_android.track or 'build' }}</span>
+                          {% if app.last_android.started_at %}
+                            <span class="muted">({{ app.last_android.started_at }})</span>
+                          {% endif %}
+                        </a>
+                      {% else %}
+                        <span class="muted text-xs">No recent Android build</span>
+                      {% endif %}
+                    </div>
+                  </td>
+
+                  <!-- iOS Config & Status -->
+                  <td>
+                    <div class="platform-cfg-cell">
+                      <div class="platform-cfg-top">
+                        {% if app.ios_ready %}
+                          <span class="badge badge-green">✓ Ready</span>
+                        {% else %}
+                          <span class="badge badge-yellow">⚠ Incomplete</span>
+                        {% endif %}
+                        <span class="cfg-check {{ 'ok' if app.ios_bundle_id else 'miss' }}" title="Xcode Bundle Identifier">
+                          {{ '✓' if app.ios_bundle_id else '✕' }} Xcode
+                        </span>
+                        <span class="cfg-check {{ 'ok' if app.has_ios_plist else 'miss' }}" title="GoogleService-Info.plist">
+                          {{ '✓' if app.has_ios_plist else '✕' }} Plist
+                        </span>
+                      </div>
+
+                      <div class="text-xs">
+                        {% if app.ios_version_name %}
+                          <span class="version-pill">
+                            v{{ app.ios_version_name }}{% if app.ios_build_num %} ({{ app.ios_build_num }}){% endif %}
+                          </span>
+                        {% else %}
+                          <span class="muted">Version not set</span>
+                        {% endif %}
+                        {% if app.ios_team_id %}
+                          <span class="muted">· Team {{ app.ios_team_id }}</span>
+                        {% endif %}
+                      </div>
+
+                      {% if app.last_ios %}
+                        <a
+                          href="/flutter/runs/{{ app.last_ios.id }}"
+                          class="last-run-pill status-{{ app.last_ios.status }}"
+                          title="Open visual run #{{ app.last_ios.id }}">
+                          <span>●</span>
+                          <span>#{{ app.last_ios.id }} · {{ app.last_ios.track or 'build' }}</span>
+                          {% if app.last_ios.started_at %}
+                            <span class="muted">({{ app.last_ios.started_at }})</span>
+                          {% endif %}
+                        </a>
+                      {% else %}
+                        <span class="muted text-xs">No recent iOS build</span>
+                      {% endif %}
+                    </div>
+                  </td>
+
+                  <!-- Quick Actions -->
+                  <td>
+                    <div class="app-actions-cell">
+                      <button
+                        type="button"
+                        class="btn btn-primary btn-sm"
+                        onclick='selectClientInTrigger({{ app.folder | tojson }}, {{ (app.android_version_name or app.ios_version_name or "") | tojson }})'>
+                        ⚡ Select in Trigger
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-secondary btn-sm"
+                        hx-get="/api/flutter/store-status?client={{ app.folder | urlencode }}"
+                        hx-target="#store-modal-body"
+                        hx-swap="innerHTML"
+                        onclick='openStoreModal({{ app.folder | tojson }})'>
+                        🍎 Check App Store
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty-state" style="padding: 32px 20px;">
+          <p style="margin: 0;">App catalog directory is currently empty. Use the Trigger form below to select from {{ clients|length }} client apps.</p>
+        </div>
+      {% endif %}
+    </section>
+
+    <!-- 2. TRIGGER NEW BUILD / DEPLOY (order: 3) -->
+    <section id="section-trigger" class="panel flutter-tab-section" data-section="trigger" style="order: 3; margin-top: 0;">
+      <div class="panel-header">
+        <div>
+          <h2>🚀 Trigger New Build / Deploy</h2>
+          <p class="muted text-xs" style="margin-top: 3px;">
+            Dispatch a cloud build or Fastlane store release to GitHub Actions and open the live visual pipeline tracker.
+          </p>
+        </div>
+        <span class="badge badge-blue">{{ clients|length }} Client Apps</span>
       </div>
-    </a>
-    {% endfor %}
+
+      <div id="selected-client-banner" class="selected-client-banner" hidden>
+        <span id="selected-client-banner-text"></span>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('selected-client-banner').hidden = true;">✕</button>
+      </div>
+
+      <form action="/flutter/trigger" method="post" class="stack" id="flutter-trigger-form">
+        <div class="form-row">
+          <label>
+            Client App (from /publish)
+            <span class="hint">Select from the {{ clients|length }} client apps or click "⚡ Select in Trigger" above</span>
+            <select name="client" id="trigger-client-select" required>
+              {% for c in clients %}
+                <option value="{{ c }}" {% if c == '001. ShiftMMS' %}selected{% endif %}>{{ c }}</option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label>
+            Target Platform
+            <span class="hint">Android runs on ubuntu-latest; iOS runs on macos-latest</span>
+            <select name="platform" id="trigger-platform-select">
+              <option value="android" selected>🤖 Android (AAB &amp; APK)</option>
+              <option value="ios">🍎 iOS (IPA / Xcode)</option>
+              <option value="both">🤖🍎 Both (Android + iOS)</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="form-row-3">
+          <label>
+            Pipeline Action
+            <span class="hint">Build Only saves downloadable APK/AAB/IPA in GitHub</span>
+            <select name="action" id="trigger-action-select">
+              <option value="build_only" selected>📦 Build Only (Safe Test / Artifact)</option>
+              <option value="build_and_publish">🚀 Build &amp; Publish to Store (Fastlane)</option>
+            </select>
+          </label>
+
+          <label>
+            Store Release Track
+            <span class="hint">Used when Action is Build &amp; Publish</span>
+            <select name="track" id="trigger-track-select">
+              <option value="internal" selected>Internal Testing / TestFlight (Recommended)</option>
+              <option value="alpha">Closed Testing (Alpha)</option>
+              <option value="beta">Open Testing (Beta)</option>
+              <option value="production">Production Store Release</option>
+            </select>
+          </label>
+
+          <label>
+            Version Name Override (Optional)
+            <span class="hint">Leave blank to keep client's current versionName</span>
+            <input type="text" name="version_name" id="trigger-version-input" placeholder="e.g. 4.3.8">
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label>
+            Auto-Increment Build Number (versionCode / CFBundleVersion)
+            <span class="hint">Adds +1 to build number &amp; commits back to publish/</span>
+            <select name="bump_version">
+              <option value="false" selected>No — Keep existing build number (Dry-run)</option>
+              <option value="true">Yes — Increment build number (+1)</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">🚀 Launch Visual CI/CD Pipeline</button>
+        </div>
+      </form>
+    </section>
+
   </div>
 </div>
-{% endif %}
+
+<!-- Live Store Status Modal -->
+<div id="store-status-modal" class="modal-backdrop" hidden onclick="if(event.target === this) closeStoreModal()">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="store-modal-title">
+    <div class="modal-header">
+      <div>
+        <h2 id="store-modal-title">🍎 App Store &amp; Repository Status</h2>
+        <p class="muted text-xs" id="store-modal-subtitle" style="margin-top: 2px;">Checking live store metadata...</p>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeStoreModal()">✕ Close</button>
+    </div>
+    <div id="store-modal-body">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 24px 0; color: var(--muted);">
+        <span class="step-spinner"></span>
+        <span>Querying App Store Connect, TestFlight &amp; publish repository status...</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    window._flutterActiveTab = window._flutterActiveTab || 'all';
+    window._catalogFilter = window._catalogFilter || 'all';
+
+    window.applyFlutterTab = function (tabName) {
+      window._flutterActiveTab = tabName;
+      document.querySelectorAll('.flutter-tab-btn').forEach(function (btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
+      });
+      document.querySelectorAll('.flutter-tab-section').forEach(function (sec) {
+        if (tabName === 'all') {
+          sec.hidden = false;
+        } else {
+          sec.hidden = sec.getAttribute('data-section') !== tabName;
+        }
+      });
+    };
+
+    window.switchFlutterTab = function (tabName) {
+      window.applyFlutterTab(tabName);
+    };
+
+    window.scrollToTriggerForm = function () {
+      if (window._flutterActiveTab !== 'all' && window._flutterActiveTab !== 'trigger') {
+        window.applyFlutterTab('all');
+      }
+      const sec = document.getElementById('section-trigger');
+      if (sec) {
+        sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        sec.classList.remove('trigger-card-highlight');
+        void sec.offsetWidth;
+        sec.classList.add('trigger-card-highlight');
+      }
+    };
+
+    window.selectClientInTrigger = function (clientFolder, currentVer) {
+      if (window._flutterActiveTab !== 'all' && window._flutterActiveTab !== 'trigger') {
+        window.applyFlutterTab('all');
+      }
+      const sel = document.getElementById('trigger-client-select');
+      if (sel) {
+        sel.value = clientFolder;
+      }
+      const verInput = document.getElementById('trigger-version-input');
+      if (verInput && currentVer) {
+        verInput.placeholder = 'Current: ' + currentVer + ' (leave blank to keep)';
+      }
+      const banner = document.getElementById('selected-client-banner');
+      const bannerText = document.getElementById('selected-client-banner-text');
+      if (banner && bannerText) {
+        bannerText.textContent = '✓ Pre-selected "' + clientFolder + '"' + (currentVer ? ' (current v' + currentVer + ')' : '') + ' — choose platform & action below.';
+        banner.hidden = false;
+      }
+      window.scrollToTriggerForm();
+    };
+
+    window.setCatalogFilter = function (filterKey, btnEl) {
+      window._catalogFilter = filterKey;
+      document.querySelectorAll('.filter-pill').forEach(function (b) {
+        b.classList.toggle('active', b === btnEl);
+      });
+      window.filterCatalog();
+    };
+
+    window.filterCatalog = function () {
+      const input = document.getElementById('catalog-search');
+      const query = (input ? input.value : '').trim().toLowerCase();
+      const filterKey = window._catalogFilter || 'all';
+      const rows = document.querySelectorAll('.catalog-row');
+      let visible = 0;
+
+      rows.forEach(function (row) {
+        const searchBlob = row.getAttribute('data-search') || '';
+        const matchesQuery = !query || searchBlob.indexOf(query) !== -1;
+        let matchesFilter = true;
+        if (filterKey === 'both-ready') {
+          matchesFilter = row.getAttribute('data-both-ready') === 'true';
+        } else if (filterKey === 'built-recently') {
+          matchesFilter = row.getAttribute('data-built-recently') === 'true';
+        } else if (filterKey === 'incomplete') {
+          matchesFilter = row.getAttribute('data-incomplete') === 'true';
+        }
+        const show = matchesQuery && matchesFilter;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+
+      const countEl = document.getElementById('catalog-visible-count');
+      if (countEl) countEl.textContent = String(visible);
+    };
+
+    window.openStoreModal = function (clientFolder) {
+      const modal = document.getElementById('store-status-modal');
+      const subtitle = document.getElementById('store-modal-subtitle');
+      const body = document.getElementById('store-modal-body');
+      if (subtitle) subtitle.textContent = 'Client: ' + clientFolder;
+      if (body) {
+        body.innerHTML =
+          '<div style="display:flex;align-items:center;gap:12px;padding:24px 0;color:var(--muted);">' +
+          '<span class="step-spinner"></span>' +
+          '<span>Checking live App Store Connect, TestFlight &amp; publish config for <strong>' +
+          clientFolder +
+          '</strong>...</span></div>';
+      }
+      if (modal) modal.hidden = false;
+    };
+
+    window.closeStoreModal = function () {
+      const modal = document.getElementById('store-status-modal');
+      if (modal) modal.hidden = true;
+    };
+
+    // Preserve active tab across HTMX swaps on #flutter-overview-container
+    document.addEventListener('htmx:afterSettle', function () {
+      if (window.applyFlutterTab && window._flutterActiveTab) {
+        window.applyFlutterTab(window._flutterActiveTab);
+      }
+    });
+
+    // If /api/flutter/store-status returns JSON instead of HTML, format it cleanly into HTML cards
+    document.addEventListener('htmx:beforeSwap', function (evt) {
+      if (evt.detail && evt.detail.target && evt.detail.target.id === 'store-modal-body') {
+        const raw = (evt.detail.serverResponse || '').trim();
+        if (raw.startsWith('{')) {
+          try {
+            const data = JSON.parse(raw);
+            let html = '<div class="stack" style="gap:14px;">';
+            if (data.error) {
+              html += '<div class="alert alert-error">' + data.error + '</div>';
+            }
+            html += '<div class="run-meta-grid" style="margin-bottom:0;">';
+            Object.keys(data).forEach(function (k) {
+              if (k === 'error' || typeof data[k] === 'object') return;
+              html +=
+                '<div class="run-meta-item">' +
+                '<span class="run-meta-label">' + k.replace(/_/g, ' ') + '</span>' +
+                '<span class="run-meta-val mono">' + String(data[k]) + '</span>' +
+                '</div>';
+            });
+            html += '</div>';
+            Object.keys(data).forEach(function (k) {
+              if (data[k] && typeof data[k] === 'object') {
+                html +=
+                  '<div class="v-step-logs-box" style="max-height:220px;">' +
+                  '<strong>' + k + ':</strong>\n' +
+                  JSON.stringify(data[k], null, 2) +
+                  '</div>';
+              }
+            });
+            html += '</div>';
+            evt.detail.serverResponse = html;
+          } catch (e) {
+            // Leave raw response if not valid JSON
+          }
+        }
+      }
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        window.closeStoreModal();
+      }
+    });
+  })();
+</script>
 {% endblock %}

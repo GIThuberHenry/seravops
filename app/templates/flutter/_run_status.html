@@ -1,0 +1,222 @@
+{% set exec_status = execution.status.value if execution.status is defined and execution.status.value is defined else (execution.status if execution is defined else pipeline.status) %}
+{% set p = pipeline if pipeline is defined and pipeline else {} %}
+{% set st = p.get('status') or exec_status or 'pending' %}
+{% set plat = p.get('platform') or 'android' %}
+{% set act = p.get('action') or 'build_only' %}
+{% set trk = p.get('track') or 'internal' %}
+{% set pct = p.get('progress_pct', 0) %}
+
+<section id="flutter-run-status"
+  {% if exec_status in ['pending', 'running'] %}
+    hx-get="/flutter/runs/{{ execution.id }}"
+    hx-trigger="every 2s"
+    hx-swap="outerHTML"
+  {% endif %}>
+
+  <!-- Header Card -->
+  <div class="run-header-card">
+    <div class="run-header-top">
+      <div>
+        <div class="run-client-heading">
+          <span class="status status-{{ st }}">{{ st }}</span>
+          <span>{{ p.get('client') or 'Flutter Client Build' }}</span>
+          <span class="muted text-sm">#{{ execution.id }}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
+          <span class="badge badge-blue">
+            {% if plat == 'ios' %}🍎 iOS{% elif plat == 'both' %}🤖🍎 Android + iOS{% else %}🤖 Android{% endif %}
+          </span>
+          <span class="badge {% if act == 'build_and_publish' %}badge-green{% else %}badge-purple{% endif %}">
+            {% if act == 'build_and_publish' %}🚀 Publish → {{ trk|capitalize }}{% else %}📦 Build Only{% endif %}
+          </span>
+          {% if p.get('bump_version') %}
+            <span class="badge badge-blue">+1 Version Bump</span>
+          {% endif %}
+          {% if exec_status in ['pending', 'running'] %}
+            <span class="badge">🔄 Live polling every 2s</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        {% if p.get('github_run_url') %}
+          <a href="{{ p.get('github_run_url') }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
+            ↗ View on GitHub Actions
+          </a>
+        {% endif %}
+        <a href="/flutter" class="btn btn-secondary btn-sm">
+          📱 All Apps &amp; Builds
+        </a>
+      </div>
+    </div>
+
+    <!-- Metadata Strip -->
+    <div class="run-meta-grid">
+      <div class="run-meta-item">
+        <span class="run-meta-label">Application / Bundle ID</span>
+        <span class="run-meta-val mono">{{ p.get('app_id') or 'Detecting...' }}</span>
+      </div>
+
+      <div class="run-meta-item">
+        <span class="run-meta-label">Version &amp; Build</span>
+        <span class="run-meta-val mono">
+          {% if p.get('version_name') %}
+            v{{ p.get('version_name') }}{% if p.get('version_code') %} · Build {{ p.get('version_code') }}{% endif %}
+          {% else %}
+            Aligning from publish/...
+          {% endif %}
+        </span>
+      </div>
+
+      <div class="run-meta-item">
+        <span class="run-meta-label">Elapsed Duration</span>
+        <span class="run-meta-val">⏱ {{ p.get('duration') or '0s' }}</span>
+      </div>
+
+      <div class="run-meta-item">
+        <span class="run-meta-label">Triggered By</span>
+        <span class="run-meta-val">
+          {{ execution.triggered_by.username if execution.triggered_by and execution.triggered_by.username is defined else 'admin' }}
+          {% if execution.started_at %}
+            <span class="muted text-xs">({{ execution.started_at.strftime('%H:%M:%S') if execution.started_at.strftime is defined else execution.started_at }} UTC)</span>
+          {% endif %}
+        </span>
+      </div>
+    </div>
+
+    <!-- Overall Progress Bar -->
+    <div class="pipeline-progress-wrap" style="margin-bottom: 0;">
+      <div class="pipeline-progress-header">
+        <div class="pipeline-current-step">
+          {% if st in ['pending', 'running'] %}
+            <span class="step-spinner"></span>
+            <span>{{ p.get('current_step_title') or 'Initializing pipeline...' }}</span>
+          {% elif st == 'success' %}
+            <span style="color: var(--green);">✓</span>
+            <span style="color: #86efac;">{{ p.get('summary_message') or p.get('current_step_title') or 'Pipeline completed successfully!' }}</span>
+          {% elif st == 'failed' %}
+            <span style="color: var(--red);">✕</span>
+            <span style="color: #fca5a5;">{{ p.get('summary_message') or p.get('current_step_title') or 'Pipeline failed' }}</span>
+          {% endif %}
+        </div>
+        <span class="pipeline-pct-label">{{ pct }}%</span>
+      </div>
+      <div class="pipeline-progress-track" style="height: 12px;">
+        <div class="pipeline-progress-fill status-{{ st }}" style="width: {{ pct }}%;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary Banner for Completed or Failed Runs -->
+  {% if st == 'success' and p.get('summary_message') %}
+    <div class="alert alert-success" style="margin-bottom: 18px;">
+      <span>🎉</span>
+      <div>
+        <strong>{{ p.get('summary_message') }}</strong>
+        {% if p.get('version_name') %}
+          <span style="margin-left: 6px;">({{ p.get('client') }} · v{{ p.get('version_name') }}{% if p.get('version_code') %}+{{ p.get('version_code') }}{% endif %})</span>
+        {% endif %}
+      </div>
+    </div>
+  {% elif st == 'failed' and p.get('summary_message') %}
+    <div class="alert alert-error" style="margin-bottom: 18px;">
+      <span>⚠️</span>
+      <div>
+        <strong>Build / Publish Failed:</strong> {{ p.get('summary_message') }}
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Visual Stepper Cards -->
+  <div class="pipeline-stepper-list">
+    {% for step in p.get('steps', []) %}
+      <div class="v-step-card v-step-{{ step.status }}">
+        <div class="v-step-icon">
+          {% if step.status == 'success' %}
+            ✓
+          {% elif step.status == 'running' %}
+            <span class="step-spinner" style="width: 16px; height: 16px; border-width: 2.2px;"></span>
+          {% elif step.status == 'failed' %}
+            ✕
+          {% else %}
+            {{ step.number }}
+          {% endif %}
+        </div>
+
+        <div class="v-step-body">
+          <div class="v-step-top">
+            <div>
+              <div class="v-step-title">
+                Step {{ step.number }} of {{ step.total }} · {{ step.title }}
+              </div>
+              {% if step.subtitle %}
+                <div class="v-step-subtitle">{{ step.subtitle }}</div>
+              {% endif %}
+            </div>
+            <div>
+              {% if step.status == 'success' %}
+                <span class="badge badge-green">✓ Completed</span>
+              {% elif step.status == 'running' %}
+                <span class="badge badge-blue">● In Progress</span>
+              {% elif step.status == 'failed' %}
+                <span class="badge badge-red">✕ Failed</span>
+              {% else %}
+                <span class="badge">Pending</span>
+              {% endif %}
+            </div>
+          </div>
+
+          {% if step.detail %}
+            <div class="v-step-detail-pill">
+              <span>📌</span>
+              <span>{{ step.detail }}</span>
+            </div>
+          {% endif %}
+
+          {% if step.status == 'failed' and p.get('error_output') %}
+            <div class="v-step-error-box">{{ p.get('error_output') }}</div>
+          {% endif %}
+
+          {% if step.logs and step.logs|length > 0 %}
+            <details class="v-step-logs-toggle" data-step-num="{{ step.number }}">
+              <summary>
+                <span>▸ Show step output ({{ step.logs|length }} line{{ 's' if step.logs|length != 1 else '' }})</span>
+              </summary>
+              <div class="v-step-logs-box">{% for line in step.logs %}{{ line }}{% if not loop.last %}
+{% endif %}{% endfor %}</div>
+            </details>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <!-- Subtle Footer Link to Legacy Raw Log -->
+  <div class="legacy-log-footer">
+    <span>
+      Execution #{{ execution.id }}
+      {% if execution.finished_at %}
+        · Finished {{ execution.finished_at.strftime('%Y-%m-%d %H:%M:%S') if execution.finished_at.strftime is defined else execution.finished_at }} UTC
+      {% endif %}
+    </span>
+    <span>
+      Need raw execution logs? <a href="/executions/{{ execution.id }}?raw=1">View legacy log (#{{ execution.id }})</a>
+    </span>
+  </div>
+
+  <script>
+    (function () {
+      window._openStepDetails = window._openStepDetails || {};
+
+      document.querySelectorAll('#flutter-run-status details[data-step-num]').forEach(function (det) {
+        const num = det.getAttribute('data-step-num');
+        if (window._openStepDetails[num]) {
+          det.open = true;
+        }
+        det.addEventListener('toggle', function () {
+          window._openStepDetails[num] = det.open;
+        });
+      });
+    })();
+  </script>
+</section>

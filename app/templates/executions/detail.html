@@ -2,7 +2,7 @@
 {% block title %}Execution #{{ execution.id }} · Seravops{% endblock %}
 {% block content %}
 {% if execution.recipe.name == 'Flutter Multi-Client CI/CD' %}
-<a class="back" href="/flutter">← Flutter CI/CD</a>
+<a class="back" href="/flutter">← Flutter CI/CD Center</a>
 {% else %}
 <a class="back" href="/recipes/{{ execution.recipe.id }}">← {{ execution.recipe.name }}</a>
 {% endif %}
@@ -11,6 +11,29 @@
     <h1>Execution #{{ execution.id }}</h1>
     <p class="muted">{{ execution.recipe.service.name }} · {{ execution.recipe.name }}</p>
   </div>
+  {% if execution.recipe.name == 'Flutter Multi-Client CI/CD' %}
+  <div class="page-heading-actions">
+    <a class="btn btn-primary" href="/flutter/runs/{{ execution.id }}">
+      📡 Open Visual Pipeline Tracker →
+    </a>
+  </div>
+  {% endif %}
 </div>
+
+{% if execution.recipe.name == 'Flutter Multi-Client CI/CD' %}
+<div class="live-status-strip has-active" style="margin-bottom: 20px;">
+  <div class="live-status-left">
+    <span>📱</span>
+    <span>
+      Viewing raw execution log for <strong>Flutter Multi-Client CI/CD (#{{ execution.id }})</strong>.
+      Prefer the clean step-by-step progress view?
+    </span>
+  </div>
+  <a class="btn btn-primary btn-sm" href="/flutter/runs/{{ execution.id }}">
+    Switch to Visual Pipeline View →
+  </a>
+</div>
+{% endif %}
+
 {% include "executions/_status.html" %}
 {% endblock %}

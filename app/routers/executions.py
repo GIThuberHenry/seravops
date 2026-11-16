@@ -28,16 +28,23 @@ async def execution_run(
     return RedirectResponse(f"/executions/{execution.id}", status_code=status.HTTP_303_SEE_OTHER)
 
 
-@router.get("/executions/{execution_id}", response_class=HTMLResponse)
+@router.get("/executions/{execution_id}", response_class=HTMLResponse, response_model=None)
 async def execution_detail(
     execution_id: int,
     request: Request,
     user: Annotated[User, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> HTMLResponse:
+) -> HTMLResponse | RedirectResponse:
     execution = await recipe_service.get_execution(db, execution_id)
     if not execution:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Execution not found")
+    if (
+        execution.recipe
+        and execution.recipe.name == "Flutter Multi-Client CI/CD"
+        and request.query_params.get("raw") != "1"
+        and request.headers.get("HX-Request") != "true"
+    ):
+        return RedirectResponse(f"/flutter/runs/{execution_id}", status_code=status.HTTP_302_FOUND)
     context = {"execution": execution, "current_user": user}
     if request.headers.get("HX-Request") == "true":
         return templates.TemplateResponse(request, "executions/_status.html", context)

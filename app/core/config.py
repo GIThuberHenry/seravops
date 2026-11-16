@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     github_token: str = ""
     github_repo: str = "Dinamigra/ss-flutter"
 
+    asc_key_id: str = "5XH7NATKP5"
+    asc_issuer_id: str = "69a6de95-8435-47e3-e053-5b8c7c11a4d1"
+    asc_key_p8: str = ""
+
     template_dir: Path = BASE_DIR / "templates"
     static_dir: Path = BASE_DIR / "static"
 

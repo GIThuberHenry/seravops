@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% set p = pipeline if pipeline is defined and pipeline else {} %}
+{% block title %}
+  {{ p.get('client') or ('Pipeline #' ~ execution.id) }} · Flutter CI/CD · Seravops
+{% endblock %}
+{% block content %}
+<div class="pipeline-run-page">
+  <a class="back" href="/flutter">← Back to Flutter CI/CD Center</a>
+  {% include "flutter/_run_status.html" %}
+</div>
+{% endblock %}
