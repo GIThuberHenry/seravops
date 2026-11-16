@@ -755,6 +755,37 @@ async def append_callback_logs(
     return True
 
 
+async def stop_flutter_execution(
+    db: AsyncSession, execution_id: int, username: str = "admin"
+) -> bool:
+    execution = await db.scalar(
+        select(RecipeExecution)
+        .where(RecipeExecution.id == execution_id)
+        .options(selectinload(RecipeExecution.recipe).selectinload(Recipe.steps))
+    )
+    if not execution:
+        return False
+    if execution.status not in {ExecutionStatus.PENDING, ExecutionStatus.RUNNING}:
+        return True
+
+    step_id: int | None = None
+    if execution.recipe and execution.recipe.steps:
+        step_id = execution.recipe.steps[0].id
+
+    execution.status = ExecutionStatus.FAILED
+    execution.finished_at = datetime.now(UTC)
+    db.add(
+        ExecutionLog(
+            execution_id=execution_id,
+            step_id=step_id,
+            stream=LogStream.STDERR,
+            message=f"🛑 Pipeline manually stopped / cancelled by {username}.",
+        )
+    )
+    await db.commit()
+    return True
+
+
 async def _append_log(
     session_factory: SessionFactory,
     execution_id: int,

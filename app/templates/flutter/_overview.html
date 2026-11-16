@@ -76,6 +76,12 @@
               </div>
 
               <div class="live-pipeline-actions">
+                <form action="/flutter/runs/{{ ex.id }}/stop" method="post" style="margin: 0;" onsubmit="return confirm('Stop / cancel execution #{{ ex.id }} ({{ client_name }})?');">
+                  <input type="hidden" name="redirect_to" value="/flutter">
+                  <button type="submit" class="btn btn-danger btn-sm">
+                    🛑 Stop
+                  </button>
+                </form>
                 {% if p.get('github_run_url') %}
                   <a href="{{ p.get('github_run_url') }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
                     ↗ GitHub Run

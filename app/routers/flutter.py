@@ -93,6 +93,21 @@ async def flutter_run_detail(
     return templates.TemplateResponse(request, "flutter/run.html", context)
 
 
+@router.post("/flutter/runs/{execution_id}/stop")
+async def flutter_run_stop(
+    execution_id: int,
+    request: Request,
+    user: Annotated[User, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    redirect_to: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    ok = await flutter_service.stop_flutter_execution(db, execution_id, user.username)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Execution not found")
+    target_url = redirect_to.strip() or f"/flutter/runs/{execution_id}"
+    return RedirectResponse(target_url, status_code=status.HTTP_303_SEE_OTHER)
+
+
 @router.get("/api/flutter/store-status", response_class=HTMLResponse)
 async def flutter_store_status(
     request: Request,
