@@ -40,6 +40,7 @@ async def _build_flutter_dashboard_context(
         "catalog": catalog,
         "catalog_stats": catalog_stats,
         "github_repo": get_settings().github_repo,
+        "flutter_branch": get_settings().flutter_branch,
     }
 
 

@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
 from app.core.logging import configure_logging
-from app.routers import auth, executions, flutter, recipes, services, users
+from app.routers import auth, dashboard, executions, flutter, recipes, services, users
 
 
 @asynccontextmanager
@@ -94,6 +94,7 @@ def create_app() -> FastAPI:
 
     application.mount("/static", StaticFiles(directory=settings.static_dir), name="static")
     application.include_router(auth.router)
+    application.include_router(dashboard.router)
     application.include_router(services.router)
     application.include_router(recipes.router)
     application.include_router(executions.router)
@@ -112,7 +113,7 @@ def create_app() -> FastAPI:
 
     @application.get("/", include_in_schema=False)
     async def index() -> RedirectResponse:
-        return RedirectResponse("/services")
+        return RedirectResponse("/dashboard")
 
     @application.get("/health", tags=["health"])
     async def health() -> JSONResponse:

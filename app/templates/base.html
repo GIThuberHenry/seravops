@@ -10,7 +10,7 @@
   </head>
   <body>
     <header>
-      <a class="brand" href="/services">⚡ Seravops</a>
+      <a class="brand" href="/dashboard">⚡ Seravops</a>
       {% if current_user %}
         <div class="burger-wrapper">
           <div class="header-user-pill">
@@ -36,6 +36,10 @@
               <span class="role-badge {% if current_user.role.value == 'admin' %}admin{% endif %}">{{ current_user.role.value }}</span>
             </div>
             <div class="burger-menu-links">
+              <a href="/dashboard" class="burger-link {% if request.url.path == '/dashboard' or request.url.path == '/' %}active{% endif %}">
+                <span class="burger-icon">🏠</span>
+                <span>Dashboard</span>
+              </a>
               <a href="/services" class="burger-link {% if request.url.path.startswith('/services') or request.url.path.startswith('/recipes') %}active{% endif %}">
                 <span class="burger-icon">📦</span>
                 <span>Services &amp; Recipes</span>

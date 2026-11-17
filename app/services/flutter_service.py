@@ -1021,6 +1021,7 @@ async def run_flutter_trigger(
         q_tag = shlex.quote(tag_name)
         q_msg = shlex.quote(payload_json)
         q_repo = shlex.quote(f"git@github.com:{settings.github_repo}.git")
+        q_branch = shlex.quote(settings.flutter_branch)
 
         cmd = (
             "set -e; "
@@ -1032,11 +1033,11 @@ async def run_flutter_trigger(
             "  git config user.email 'seravops@shiftsoft.org'; "
             "fi; "
             f"git remote set-url origin {q_repo} 2>/dev/null || git remote add origin {q_repo}; "
-            "git fetch -q --depth=1 origin master; "
+            f"git fetch -q --depth=1 origin {q_branch}; "
             f"git tag -a {q_tag} FETCH_HEAD -m {q_msg}; "
             f"git push -q origin refs/tags/{q_tag}; "
             f"git tag -d {q_tag} >/dev/null 2>&1 || true; "
-            "echo '✅ Dispatched job to GitHub Actions cloud runner.'"
+            f"echo '✅ Dispatched job to GitHub Actions cloud runner (branch: {settings.flutter_branch}).'"
         )
 
         target = settings.server("server_2")

@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Seravops{% endblock %}
+{% block content %}
+<div class="flutter-dashboard">
+  <!-- Hero / Page Heading -->
+  <div class="page-heading">
+    <div>
+      <h1>⚡ Seravops Command Center</h1>
+      <p class="muted">
+        Unified orchestration hub for Server Services &amp; Recipes, Flutter Multi-Client CI/CD (<code class="mono" style="color: #93c5fd;">{{ flutter_branch }}</code>), and Team Access.
+      </p>
+    </div>
+    <div class="page-heading-actions">
+      <a class="btn btn-primary" href="/flutter">
+        📱 Flutter CI/CD
+      </a>
+      <a class="btn btn-secondary" href="/services">
+        📦 Services &amp; Recipes
+      </a>
+      {% if current_user.role.value == 'admin' %}
+      <a class="btn btn-secondary" href="/users">
+        👥 Users
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Top KPI Strip -->
+  <div class="kpi-grid">
+    <a href="/services" class="kpi-card" style="text-decoration: none;">
+      <div>
+        <div class="kpi-label">Services &amp; Recipes</div>
+        <div class="kpi-value">{{ total_services }} <span class="muted" style="font-size: 1rem; font-weight: 600;">/ {{ total_recipes }} recipes</span></div>
+        <div class="kpi-sub">SSH &amp; Nginx automation targets</div>
+      </div>
+      <div class="kpi-icon">📦</div>
+    </a>
+
+    <a href="/flutter" class="kpi-card" style="text-decoration: none;">
+      <div>
+        <div class="kpi-label">Flutter Client Apps</div>
+        <div class="kpi-value" style="color: #86efac;">{{ catalog_stats.total }}</div>
+        <div class="kpi-sub">{{ catalog_stats.android_ready }} Android · {{ catalog_stats.ios_ready }} iOS ready</div>
+      </div>
+      <div class="kpi-icon">📱</div>
+    </a>
+
+    <a href="/flutter" class="kpi-card {% if active_total > 0 %}kpi-active-glow{% endif %}" style="text-decoration: none;">
+      <div>
+        <div class="kpi-label">Active Pipelines</div>
+        <div class="kpi-value" {% if active_total > 0 %}style="color: #60a5fa;"{% endif %}>{{ active_total }}</div>
+        <div class="kpi-sub">
+          {% if active_total > 0 %}Running live right now{% else %}All runners &amp; servers idle{% endif %}
+        </div>
+      </div>
+      <div class="kpi-icon">⚡</div>
+    </a>
+
+    {% if current_user.role.value == 'admin' %}
+    <a href="/users" class="kpi-card" style="text-decoration: none;">
+      <div>
+        <div class="kpi-label">Authorized Users</div>
+        <div class="kpi-value" style="color: #93c5fd;">{{ users_count }}</div>
+        <div class="kpi-sub">Google OAuth &amp; IP-whitelisted</div>
+      </div>
+      <div class="kpi-icon">👥</div>
+    </a>
+    {% else %}
+    <div class="kpi-card">
+      <div>
+        <div class="kpi-label">Your Role</div>
+        <div class="kpi-value" style="color: #93c5fd; text-transform: capitalize; font-size: 1.45rem;">{{ current_user.role.value }}</div>
+        <div class="kpi-sub">Signed in as {{ current_user.username }}</div>
+      </div>
+      <div class="kpi-icon">🛡️</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- 3 Main Hub Pillars -->
+  <div class="cards" style="grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); margin-bottom: 24px;">
+    <!-- Pillar 1: Services & Recipes -->
+    <div class="panel" style="margin-top: 0; display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div class="panel-header" style="margin-bottom: 14px; padding-bottom: 12px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 1.35rem;">📦</span>
+            <div>
+              <h2>Services &amp; Recipes</h2>
+              <p class="muted text-xs">Server deployments, Git pulls &amp; Nginx</p>
+            </div>
+          </div>
+          <span class="badge badge-blue">{{ total_services }} services</span>
+        </div>
+
+        {% if services %}
+          <div style="display: grid; gap: 8px; margin-bottom: 16px;">
+            {% for s in services[:4] %}
+              <a href="/services/{{ s.id }}/recipes" class="exec-row" style="padding: 10px 14px;">
+                <div class="exec-row-info">
+                  <strong style="font-size: .9rem; color: var(--text);">{{ s.name }}</strong>
+                  <span style="display: block; font-size: .76rem; color: var(--muted);">{{ s.framework }} · {{ s.target_server }} ({{ s.app_path }})</span>
+                </div>
+                <span class="badge">{{ s.recipes|length }} recipe{{ 's' if s.recipes|length != 1 else '' }} →</span>
+              </a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="muted text-sm" style="margin-bottom: 16px;">No services registered yet.</p>
+        {% endif %}
+      </div>
+
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <a href="/services" class="btn btn-primary btn-sm" style="flex: 1; justify-content: center;">Open Services →</a>
+        {% if current_user.role.value == 'admin' %}
+        <a href="/services/new" class="btn btn-secondary btn-sm">+ New Service</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Pillar 2: Flutter Multi-Client CI/CD -->
+    <div class="panel" style="margin-top: 0; display: flex; flex-direction: column; justify-content: space-between; border-color: rgba(59, 130, 246, .35);">
+      <div>
+        <div class="panel-header" style="margin-bottom: 14px; padding-bottom: 12px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 1.35rem;">📱</span>
+            <div>
+              <h2>Flutter CI/CD Center</h2>
+              <p class="muted text-xs">Branch: <code class="mono" style="color: #93c5fd;">{{ flutter_branch }}</code></p>
+            </div>
+          </div>
+          <span class="badge badge-green">{{ catalog_stats.total }} apps</span>
+        </div>
+
+        {% if flutter_execs %}
+          <div style="display: grid; gap: 8px; margin-bottom: 16px;">
+            {% for ex in flutter_execs[:4] %}
+              {% set p = ex.pipeline %}
+              <a href="/flutter/runs/{{ ex.id }}" class="exec-row" style="padding: 10px 14px;">
+                <span class="status status-{{ ex.status.value }}" style="padding: 2px 8px; font-size: .68rem;">{{ ex.status.value }}</span>
+                <div class="exec-row-info" style="min-width: 0;">
+                  <strong style="font-size: .86rem; color: var(--text);">{{ p.client }}</strong>
+                  <span style="display: block; font-size: .74rem; color: var(--muted);">
+                    #{{ ex.id }} · {{ '🍎 iOS' if p.platform == 'ios' else '🤖 Android' }} · {{ p.track }}
+                  </span>
+                </div>
+                <span class="badge mono" style="font-size: .68rem;">{{ p.duration }}</span>
+              </a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="muted text-sm" style="margin-bottom: 16px;">No Flutter CI/CD runs yet.</p>
+        {% endif %}
+      </div>
+
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <a href="/flutter" class="btn btn-primary btn-sm" style="flex: 1; justify-content: center;">Open Flutter CI/CD →</a>
+      </div>
+    </div>
+
+    <!-- Pillar 3: Users & Access Control -->
+    <div class="panel" style="margin-top: 0; display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div class="panel-header" style="margin-bottom: 14px; padding-bottom: 12px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 1.35rem;">👥</span>
+            <div>
+              <h2>Team &amp; Access</h2>
+              <p class="muted text-xs">Role permissions &amp; IP allowlists</p>
+            </div>
+          </div>
+          <span class="badge badge-purple">{{ users_count }} users</span>
+        </div>
+
+        <div style="display: grid; gap: 8px; margin-bottom: 16px;">
+          {% for u in users_list[:4] %}
+            <div class="exec-row" style="padding: 10px 14px;">
+              <div class="exec-row-info">
+                <strong style="font-size: .88rem; color: var(--text);">{{ u.username }}</strong>
+                <span style="display: block; font-size: .74rem; color: var(--muted);">{{ u.email or 'Local account' }}</span>
+              </div>
+              <span class="role-badge {% if u.role.value == 'admin' %}admin{% endif %}">{{ u.role.value }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        {% if current_user.role.value == 'admin' %}
+          <a href="/users" class="btn btn-primary btn-sm" style="flex: 1; justify-content: center;">Manage Users →</a>
+          <a href="/users/new" class="btn btn-secondary btn-sm">+ Invite</a>
+        {% else %}
+          <span class="muted text-xs">Admin role required to manage users</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Server Recipe Executions -->
+  {% if recent_recipe_execs %}
+  <div class="panel" style="margin-top: 0;">
+    <div class="panel-header">
+      <div>
+        <h2>🕓 Recent Server Recipe Executions</h2>
+        <p class="muted text-xs" style="margin-top: 3px;">Latest SSH &amp; Nginx deployment recipe runs across services.</p>
+      </div>
+      <a href="/services" class="btn btn-secondary btn-sm">View All Services →</a>
+    </div>
+    <div class="exec-list">
+      {% for ex in recent_recipe_execs %}
+        <a class="exec-row" href="/executions/{{ ex.id }}">
+          <span class="status status-{{ ex.status.value }}">{{ ex.status.value }}</span>
+          <div class="exec-row-info">
+            <strong>#{{ ex.id }} · {{ ex.recipe.service.name if ex.recipe and ex.recipe.service else 'Service' }} — {{ ex.recipe.name if ex.recipe else 'Recipe' }}</strong>
+            <span> · triggered by {{ ex.triggered_by.username if ex.triggered_by else 'system' }}</span>
+          </div>
+          <div class="exec-row-meta">
+            {% if ex.started_at %}{{ ex.started_at.strftime('%Y-%m-%d %H:%M') }} UTC{% else %}queued{% endif %}
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

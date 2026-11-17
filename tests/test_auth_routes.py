@@ -150,7 +150,7 @@ async def test_google_callback_success(app_with_db, session_factory):
             client.cookies.set("oauth_state", "valid_state_123")
             resp = await client.get("/login/google/callback?code=valid_code&state=valid_state_123")
             assert resp.status_code == 303
-            assert resp.headers["location"] == "/services"
+            assert resp.headers["location"] == "/dashboard"
             assert "access_token" in resp.cookies
 
 

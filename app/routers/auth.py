@@ -119,7 +119,7 @@ async def google_callback(
         response.delete_cookie("oauth_state")
         return response
 
-    response = RedirectResponse("/services", status_code=status.HTTP_303_SEE_OTHER)
+    response = RedirectResponse("/dashboard", status_code=status.HTTP_303_SEE_OTHER)
     response.set_cookie(
         "access_token",
         auth_service.issue_token(user),
@@ -179,7 +179,7 @@ async def login(
             status_code=status.HTTP_403_FORBIDDEN,
         )
 
-    response = RedirectResponse("/services", status_code=status.HTTP_303_SEE_OTHER)
+    response = RedirectResponse("/dashboard", status_code=status.HTTP_303_SEE_OTHER)
     response.set_cookie(
         "access_token",
         auth_service.issue_token(user),
