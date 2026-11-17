@@ -152,20 +152,33 @@ async def flutter_store_status(
             vc_str = ", ".join(
                 f"code {vc} (#{b})" for vc, b in zip(t["version_codes"], t["builds"])
             )
+            deliv = t.get("delivery_badge")
+            if deliv == "LIVE_ON_STORE":
+                deliv_pill = "<span class='badge badge-green'>🟢 LIVE ON PLAY STORE</span>"
+            elif deliv == "IN_REVIEW":
+                deliv_pill = "<span class='badge badge-yellow'>⏳ IN GOOGLE PLAY REVIEW</span>"
+            else:
+                deliv_pill = f"<span class='badge'>{t['status']}</span>"
             t_rows.append(
                 f"<div style='display:flex; align-items:center; gap:8px; flex-wrap:wrap;'>"
                 f"<span class='badge {b_cls}' style='min-width:95px; justify-content:center;'>{t['track']}</span>"
                 f"<strong>{t['name'] or 'Release'}</strong>"
                 f"<span class='mono muted text-xs'>({vc_str})</span>"
-                f"<span class='badge'>{t['status']}</span>"
+                f"{deliv_pill}"
                 f"</div>"
             )
+        pub_ver = play_info.get("public_version")
+        pub_pill = (
+            f"<span class='badge badge-green'>Public Store: v{pub_ver}</span>"
+            if pub_ver
+            else f"<span class='badge mono'>{play_info.get('package_name')}</span>"
+        )
         t_html = "".join(t_rows) if t_rows else "<span class='muted'>No active track releases</span>"
         play_html = f"""
         <div style="margin-top:4px; padding:14px 16px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); display:grid; gap:10px; font-size:.84rem;">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
             <div>🤖 <strong>Google Play Console Live Tracks</strong></div>
-            <span class="badge mono">{play_info.get('package_name')}</span>
+            {pub_pill}
           </div>
           <div style="display:grid; gap:7px;">
             {t_html}
@@ -181,14 +194,16 @@ async def flutter_store_status(
     if asc_info.get("found"):
         vers = asc_info.get("versions") or []
         blds = asc_info.get("builds") or []
-        v_str = (
-            " · ".join(
-                f"<span class='badge badge-green'>v{v['version_string']} ({v['state']})</span>"
-                for v in vers
-            )
-            if vers
-            else "<span class='muted'>None</span>"
-        )
+        v_badges = []
+        for v in vers:
+            st = v.get("state") or ""
+            if st == "READY_FOR_SALE":
+                v_badges.append(f"<span class='badge badge-green'>🟢 v{v['version_string']} · LIVE ON APP STORE</span>")
+            elif "REVIEW" in st:
+                v_badges.append(f"<span class='badge badge-yellow'>⏳ v{v['version_string']} · {st}</span>")
+            else:
+                v_badges.append(f"<span class='badge badge-blue'>v{v['version_string']} · {st}</span>")
+        v_str = " ".join(v_badges) if v_badges else "<span class='muted'>None</span>"
         b_str = (
             " ".join(
                 f"<span class='badge badge-blue'>#{b['version']} · {b['state']} ({b['uploaded_at']})</span>"

@@ -537,8 +537,32 @@ def build_enriched_catalog(executions: list[dict[str, Any]]) -> tuple[list[dict[
     return enriched, stats
 
 
+def fetch_public_play_version(package_name: str) -> str:
+    """Scrape public Google Play Store listing to detect the currently live public versionName."""
+    if not package_name:
+        return ""
+    try:
+        req = urllib.request.Request(
+            f"https://play.google.com/store/apps/details?id={urllib.parse.quote(package_name)}&hl=en&gl=ID",
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+                )
+            },
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            html = resp.read().decode("utf-8", errors="ignore")
+        vers = re.findall(r'\[\[\["(\d+\.\d+(?:\.\d+)?)"\]\]', html)
+        if vers:
+            return vers[0]
+    except Exception:
+        pass
+    return ""
+
+
 def query_google_play_live(package_name: str) -> dict[str, Any]:
-    """Query Google Play Android Developer API (v3) for live track releases."""
+    """Query Google Play Android Developer API (v3) for live track releases + public store version."""
     settings = get_settings()
     raw_sa = settings.play_store_credentials_json.strip()
     if not raw_sa or not package_name:
@@ -551,6 +575,7 @@ def query_google_play_live(package_name: str) -> dict[str, Any]:
         import urllib.parse
         import jwt
 
+        public_version = fetch_public_play_version(package_name)
         sa_str = raw_sa if raw_sa.startswith("{") else base64.b64decode(raw_sa).decode("utf-8")
         sa = json.loads(sa_str)
         now = int(time.time())
@@ -598,6 +623,7 @@ def query_google_play_live(package_name: str) -> dict[str, Any]:
             tracks_data = json.loads(tracks_resp.read().decode("utf-8"))
 
         tracks_list = []
+        review_status = ""
         for t in tracks_data.get("tracks") or []:
             rels = t.get("releases") or []
             if not rels:
@@ -608,13 +634,26 @@ def query_google_play_live(package_name: str) -> dict[str, Any]:
                 str(int(vc) - 1048576) if str(vc).isdigit() and int(vc) > 1048576 else str(vc)
                 for vc in vcodes
             ]
+            rel_name = r0.get("name") or ""
+            track_name = t.get("track") or ""
+            delivery_badge = ""
+            if track_name == "production" and public_version:
+                if public_version in rel_name:
+                    delivery_badge = "LIVE_ON_STORE"
+                    review_status = f"🟢 Live on Public Play Store (v{public_version})"
+                else:
+                    delivery_badge = "IN_REVIEW"
+                    review_status = (
+                        f"⏳ In Google Play Review (Submitted: {rel_name} · Public Store still v{public_version})"
+                    )
             tracks_list.append(
                 {
-                    "track": t.get("track"),
-                    "name": r0.get("name") or "",
+                    "track": track_name,
+                    "name": rel_name,
                     "version_codes": vcodes,
                     "builds": builds,
                     "status": r0.get("status") or "",
+                    "delivery_badge": delivery_badge,
                 }
             )
 
@@ -622,6 +661,8 @@ def query_google_play_live(package_name: str) -> dict[str, Any]:
             "configured": True,
             "found": True,
             "package_name": package_name,
+            "public_version": public_version,
+            "review_status": review_status,
             "service_account": sa.get("client_email"),
             "tracks": tracks_list,
         }
