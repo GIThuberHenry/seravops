@@ -1000,6 +1000,7 @@ async def run_flutter_trigger(
         "track": track,
         "bump_version": bump_version,
         "version_name": version_name,
+        "branch": settings.flutter_branch,
         "execution_id": execution_id,
         "callback_url": callback_url,
         "callback_token": callback_token,
